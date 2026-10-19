@@ -120,7 +120,7 @@ function CompatEditor({ group, onClose }: { group: CompatGroup | null; onClose: 
       onClose={onClose}
       title={group ? 'تعديل توفيقة' : 'توفيقة جديدة'}
       footer={
-        <Button block loading={busy} disabled={!name.trim()} onClick={save}>
+        <Button block loading={busy} disabled={!name.trim() || !base || (!devices.length && !dev.trim())} onClick={save}>
           حفظ
         </Button>
       }
@@ -129,7 +129,7 @@ function CompatEditor({ group, onClose }: { group: CompatGroup | null; onClose: 
         <Field label="اسم المجموعة">
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="مثلاً: اسكرينة A54 / A34" />
         </Field>
-        <Field label="الاسكرينة الأساسية (منتج)">
+        <Field label="الاسكرينة الأساسية (منتج)" hint="لازم تختار المنتج اللي بيتباع للأجهزة دي">
           <button type="button" className="input flex items-center justify-between text-right" onClick={() => setPicking(true)}>
             <span className={base ? '' : 'text-ink-3'}>{base ? (byId.get(base)?.p.name ?? `منتج #${base}`) : 'اختار المنتج'}</span>
             {base && (
