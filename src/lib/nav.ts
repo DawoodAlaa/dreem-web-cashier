@@ -26,7 +26,7 @@ export const PAGES: { id: PageId; label: string; perms: Perm[] | 'owner' }[] = [
   { id: 'inventory', label: 'جرد المخزون', perms: ['stock'] },
   { id: 'shortages', label: 'النواقص', perms: ['sell', 'products', 'stock', 'purchases'] },
   { id: 'purchases', label: 'المشتريات', perms: ['purchases'] },
-  { id: 'compat', label: 'التوفيقات', perms: ['products'] },
+  { id: 'compat', label: 'التوفيقات', perms: ['sell', 'products', 'stock', 'purchases'] },
   { id: 'customers', label: 'العملاء والآجل', perms: ['customers', 'credit'] },
   { id: 'expenses', label: 'المصاريف', perms: ['expenses'] },
   { id: 'drawer', label: 'تصفية الدرج', perms: ['drawer'] },

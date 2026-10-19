@@ -24,7 +24,6 @@ const OFFERS = -2
 export default function SalesPage() {
   const views = useShop((s) => s.views)
   const categories = useShop((s) => s.categories)
-  const compat = useShop((s) => s.compat)
   const offers = useShop((s) => s.offers)
   const byId = useShop((s) => s.byId)
   const parts = useShop((s) => s.parts)
@@ -55,34 +54,20 @@ export default function SalesPage() {
     return m
   }, [views])
 
-  // البحث بالتوفيقات: لو اللي بيدور عليه اسم جهاز، الاسكرينات اللي بتركب عليه تظهر بعلامة "متوافق"
   const nq = norm(q)
-  const compatIds = useMemo(() => {
-    const ids = new Set<number>()
-    if (!nq) return ids
-    for (const g of compat) {
-      if (g.base_product_id == null) continue
-      if (norm(g.name).includes(nq) || g.devices.some((d) => norm(d).includes(nq))) ids.add(g.base_product_id)
-    }
-    return ids
-  }, [compat, nq])
-
   const list = useMemo(() => {
     const tokens = nq.split(/\s+/).filter(Boolean)
     let out = views.filter((v) => {
       if (cat >= 0 && v.p.category_id !== cat) return false
-      if (!tokens.length) return true
-      if (compatIds.has(v.p.id)) return true
       return tokens.every((t) => v.key.includes(t))
     })
     if (sort === 'name') out = out.slice().sort((a, b) => a.p.name.localeCompare(b.p.name, 'ar'))
     else if (sort === 'price') out = out.slice().sort((a, b) => a.p.sell_price - b.p.sell_price)
     else if (sort === 'qty') out = out.slice().sort((a, b) => b.stock - a.stock)
-    if (compatIds.size) out = out.slice().sort((a, b) => Number(compatIds.has(b.p.id)) - Number(compatIds.has(a.p.id)))
     return out
     // parts بيأثر على حالة الكروت (يتفك/يتجمع)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [views, cat, nq, sort, compatIds, parts])
+  }, [views, cat, nq, sort, parts])
 
   const filteredOffers = useMemo(() => (nq ? offerViews.filter((o) => norm(o.offer.name + ' ' + o.summary).includes(nq)) : offerViews), [offerViews, nq])
 
@@ -98,7 +83,7 @@ export default function SalesPage() {
         <div className="mb-3 space-y-3">
           <Chips options={catOptions} value={cat} onChange={setCat} />
           <div className="flex flex-wrap gap-2">
-            <SearchBox value={q} onChange={setQ} placeholder="بحث بالاسم أو اسم الجهاز (زي A54)" className="min-w-[200px] flex-1" />
+            <SearchBox value={q} onChange={setQ} placeholder="بحث باسم المنتج" className="min-w-[200px] flex-1" />
             <Select value={sort} onChange={(e) => setSort(e.target.value as Sort)} className="w-auto min-w-[8.5rem] flex-none" aria-label="الترتيب">
               <option value="new">الأحدث</option>
               <option value="name">الاسم</option>
@@ -132,7 +117,7 @@ export default function SalesPage() {
             minWidth={mobile ? 150 : 175}
             rowHeight={mobile ? 238 : 262}
             getKey={(v) => v.p.id}
-            render={(v) => <SaleCard pv={v} compatible={compatIds.has(v.p.id)} onPick={setPicked} />}
+            render={(v) => <SaleCard pv={v} onPick={setPicked} />}
           />
         )}
       </div>
@@ -159,7 +144,7 @@ export default function SalesPage() {
 
 // ───────── كارت المنتج ─────────
 
-const SaleCard = memo(function SaleCard({ pv, compatible, onPick }: { pv: ProductView; compatible: boolean; onPick: (v: ProductView) => void }) {
+const SaleCard = memo(function SaleCard({ pv, onPick }: { pv: ProductView; onPick: (v: ProductView) => void }) {
   const icon = useShop((s) => s.categories.find((c) => c.id === pv.p.category_id)?.icon ?? 'box')
   const split = splitSource(pv)
   const asm = !split && assemblable(pv)
@@ -183,7 +168,6 @@ const SaleCard = memo(function SaleCard({ pv, compatible, onPick }: { pv: Produc
         <ProductImage url={pv.p.image_url} className="h-full w-full" icon={<CategoryIcon icon={icon} className="h-10 w-10 opacity-40" />} />
         <div className="absolute right-1.5 top-1.5 flex flex-col items-start gap-1">
           {pv.p.is_used && <Tag color="purple">مستعمل</Tag>}
-          {compatible && <Tag color="teal">متوافق</Tag>}
         </div>
       </div>
       <div className="flex min-h-0 flex-1 flex-col p-2.5">

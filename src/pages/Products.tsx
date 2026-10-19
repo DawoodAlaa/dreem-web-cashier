@@ -126,7 +126,7 @@ export default function ProductsPage() {
     if (!ids.length) return
     const ok = await confirmDialog({
       title: `حذف ${ids.length} منتج`,
-      message: `هيتحذف ${ids.length} منتج من المنتجات، والتوفيقات اللي مربوطة بيهم هتتشال معاهم.\nتقدر ترجّعهم كلهم مرة واحدة من السجل (تراجع).`,
+      message: `هيتحذف ${ids.length} منتج من المنتجات.\nتقدر ترجّعهم كلهم مرة واحدة من السجل (تراجع).`,
       ok: 'حذف',
       danger: true,
     })
