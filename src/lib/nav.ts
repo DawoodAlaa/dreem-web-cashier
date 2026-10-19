@@ -15,6 +15,7 @@ export type PageId =
   | 'reports'
   | 'log'
   | 'shortages'
+  | 'salaries'
   | 'users'
   | 'backup'
   | 'settings'
@@ -32,6 +33,11 @@ export const PAGES: { id: PageId; label: string; perms: Perm[] | 'owner' }[] = [
   { id: 'drawer', label: 'تصفية الدرج', perms: ['drawer'] },
   { id: 'reports', label: 'تقرير الأرباح', perms: ['reports'] },
   { id: 'log', label: 'السجل', perms: ['log'] },
+  {
+    id: 'salaries',
+    label: 'المرتبات',
+    perms: ['sell', 'discount', 'credit', 'returns', 'customers', 'products', 'stock', 'purchases', 'used', 'expenses', 'drawer', 'reports', 'log', 'undo', 'settings', 'salaries'],
+  },
   { id: 'users', label: 'المستخدمين', perms: 'owner' },
   { id: 'backup', label: 'النسخ الاحتياطي', perms: 'owner' },
   { id: 'settings', label: 'الإعدادات', perms: ['settings'] },

@@ -37,6 +37,7 @@ export const PERM_LABELS: Record<Perm, string> = {
   log: 'السجل',
   undo: 'التراجع عن العمليات',
   settings: 'الإعدادات',
+  salaries: 'المرتبات (التحويل من الدرج وتسجيل سحب لأي موظف)',
 }
 
 export function can(p: Perm, profile = useAuth.getState().profile): boolean {

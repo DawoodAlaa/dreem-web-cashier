@@ -7,7 +7,7 @@ import { supabase } from './supabase'
 export const TABLES = [
   'categories', 'products', 'variants', 'product_parts', 'compat_groups', 'compat_devices', 'customers', 'customer_txns',
   'invoices', 'adjustments', 'held_carts', 'cash_moves', 'offers', 'offer_items', 'activity_logs', 'app_settings',
-  'profiles', 'suppliers', 'supplier_txns', 'purchases', 'expenses', 'losses', 'settlements',
+  'profiles', 'suppliers', 'supplier_txns', 'purchases', 'expenses', 'losses', 'settlements', 'salary_moves',
 ] as const
 
 export type Change = RealtimePostgresChangesPayload<Record<string, unknown>>

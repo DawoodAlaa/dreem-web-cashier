@@ -20,6 +20,7 @@ const pages: Record<PageId, ComponentType> = {
   log: lazy(() => import('./pages/Log')),
   shortages: lazy(() => import('./pages/Shortages')),
   users: lazy(() => import('./pages/Users')),
+  salaries: lazy(() => import('./pages/Salaries')),
   backup: lazy(() => import('./pages/Backup')),
   settings: lazy(() => import('./pages/Settings')),
 }

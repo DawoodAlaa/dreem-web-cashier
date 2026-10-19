@@ -16,6 +16,7 @@ export type Perm =
   | 'log'
   | 'undo'
   | 'settings'
+  | 'salaries'
 
 export interface Profile {
   id: string

@@ -18,6 +18,7 @@ export const CASH_KINDS: Record<string, { label: string; color: Color }> = {
   withdrawal: { label: 'سحب / تصفية', color: 'primary' },
   deposit: { label: 'إيداع', color: 'green' },
   count_diff: { label: 'فرق جرد', color: 'orange' },
+  salary_fund: { label: 'تحويل للمرتبات', color: 'teal' },
 }
 
 export function useCashBalance() {
@@ -64,7 +65,7 @@ export default function DrawerPage() {
         <Stat label="تحصيل الآجل" value={<Money v={g('customer_payment')} />} color="teal" />
         <Stat label="المصاريف" value={<Money v={-g('expense')} />} color="red" />
         <Stat label="المرتجعات والمستعمل" value={<Money v={-(g('refund') + g('exchange') + g('used_purchase'))} />} color="purple" sub={g('exchange') > 0 ? `فرق استبدال +${money(g('exchange'))}` : undefined} />
-        <Stat label="المسحوبات" value={<Money v={-g('withdrawal')} />} color="primary" />
+        <Stat label="المسحوبات" value={<Money v={-(g('withdrawal') + g('salary_fund'))} />} color="primary" sub={g('salary_fund') ? `منها للمرتبات ${money(-g('salary_fund'))}` : undefined} />
       </StatGrid>
 
       <div className="lg:grid lg:grid-cols-2 lg:gap-4">

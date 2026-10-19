@@ -1,6 +1,7 @@
 import {
   AlertTriangle,
   Banknote,
+  HandCoins,
   Boxes,
   History,
   Landmark,
@@ -44,6 +45,7 @@ function actionStyle(a: string): { icon: LucideIcon; color: Color } {
   if (a === 'settings') return { icon: Settings, color: 'gray' }
   if (a === 'member' || a.startsWith('shop')) return { icon: UserCog, color: 'gray' }
   if (a === 'undo') return { icon: Undo2, color: 'red' }
+  if (a.startsWith('salary')) return { icon: HandCoins, color: 'teal' }
   return { icon: Receipt, color: 'gray' }
 }
 
