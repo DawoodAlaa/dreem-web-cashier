@@ -1,4 +1,4 @@
-import { AlertTriangle, Boxes, Gift, MoreVertical, PackagePlus, Pencil, Plus, Puzzle, Smartphone, Split, Tags, Trash2, UserRound, Wrench, Zap, Combine } from 'lucide-react'
+import { AlertTriangle, Boxes, Check, ListChecks, Gift, MoreVertical, PackagePlus, Pencil, Plus, Puzzle, Smartphone, Split, Tags, Trash2, UserRound, Wrench, Zap, Combine } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
 import { CategoryForm } from '@/components/CategoryForm'
 import { CategoryIcon } from '@/components/icons'
@@ -81,6 +81,9 @@ export default function ProductsPage() {
   const [unc, setUnc] = useState(false)
   const [dlg, setDlg] = useState<Dialog>(null)
   const [tools, setTools] = useState(false)
+  const [selecting, setSelecting] = useState(false)
+  const [sel, setSel] = useState<Set<number>>(new Set())
+  const [deleting, setDeleting] = useState(false)
 
   const counts = useMemo(() => {
     const m = new Map<number, number>()
@@ -97,6 +100,48 @@ export default function ProductsPage() {
       return tokens.every((t) => v.key.includes(t))
     })
   }, [views, cat, q, low, unc])
+
+  const toggle = (id: number) =>
+    setSel((s) => {
+      const n = new Set(s)
+      if (n.has(id)) n.delete(id)
+      else n.add(id)
+      return n
+    })
+  const allOn = list.length > 0 && list.every((v) => sel.has(v.p.id))
+  const toggleAll = () =>
+    setSel((s) => {
+      const n = new Set(s)
+      if (allOn) list.forEach((v) => n.delete(v.p.id))
+      else list.forEach((v) => n.add(v.p.id))
+      return n
+    })
+  const stopSelecting = () => {
+    setSelecting(false)
+    setSel(new Set())
+  }
+  const catName = cat !== ALL ? categories.find((c) => c.id === cat)?.name : null
+  const deleteSelected = async () => {
+    const ids = [...sel].filter((id) => views.some((v) => v.p.id === id))
+    if (!ids.length) return
+    const ok = await confirmDialog({
+      title: `حذف ${ids.length} منتج`,
+      message: `هيتحذف ${ids.length} منتج من المنتجات، والتوفيقات اللي مربوطة بيهم هتتشال معاهم.\nتقدر ترجّعهم كلهم مرة واحدة من السجل (تراجع).`,
+      ok: 'حذف',
+      danger: true,
+    })
+    if (!ok) return
+    setDeleting(true)
+    let n = 0
+    const done = await run(async () => {
+      n = Number(await rpc('archive_products', { p_ids: ids }))
+    })
+    setDeleting(false)
+    if (done) {
+      toast(`تم حذف ${n} منتج`)
+      stopSelecting()
+    }
+  }
 
   const lowCount = useMemo(() => views.filter((v) => v.isLow).length, [views])
   const uncCount = useMemo(() => views.filter((v) => v.uncounted).length, [views])
@@ -121,6 +166,11 @@ export default function ProductsPage() {
             {(canProducts || canUsed) && (
               <Button variant="outline" icon={<Wrench className="h-5 w-5" />} onClick={() => setTools(true)}>
                 أدوات
+              </Button>
+            )}
+            {canProducts && (
+              <Button variant={selecting ? 'soft' : 'outline'} icon={<ListChecks className="h-5 w-5" />} onClick={() => (selecting ? stopSelecting() : setSelecting(true))}>
+                {selecting ? 'إلغاء التحديد' : 'تحديد'}
               </Button>
             )}
           </>
@@ -156,7 +206,33 @@ export default function ProductsPage() {
       {list.length === 0 ? (
         <Empty icon={<Boxes />} text={views.length ? 'مفيش منتجات مطابقة' : 'مفيش منتجات لسه. ابدأ بإضافة منتج'} />
       ) : (
-        <VirtualList items={list} estimate={128} getKey={(v) => v.p.id} render={(v) => <ProductRow pv={v} onAction={setDlg} canProducts={canProducts} canStock={canStock} />} />
+        <div className={selecting ? 'pb-32' : undefined}>
+          <VirtualList
+            items={list}
+            estimate={128}
+            getKey={(v) => v.p.id}
+            render={(v) => (
+              <ProductRow pv={v} onAction={setDlg} canProducts={canProducts} canStock={canStock} selecting={selecting} selected={sel.has(v.p.id)} onToggle={() => toggle(v.p.id)} />
+            )}
+          />
+        </div>
+      )}
+
+      {selecting && (
+        <div className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-line bg-white/95 shadow-sheet backdrop-blur lg:right-[248px]">
+          <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-2 px-3 py-3 lg:px-6">
+            <span className="text-[15px] font-extrabold">
+              <span className="num">{sel.size}</span> محدد
+            </span>
+            <Button size="sm" variant="soft" onClick={toggleAll} disabled={!list.length}>
+              {allOn ? 'شيل تحديد الكل' : catName ? `تحديد كل ${catName} (${list.length})` : `تحديد الكل (${list.length})`}
+            </Button>
+            <div className="flex-1" />
+            <Button size="sm" variant="danger" icon={<Trash2 className="h-4 w-4" />} loading={deleting} disabled={!sel.size} onClick={deleteSelected}>
+              حذف{sel.size ? ` (${sel.size})` : ''}
+            </Button>
+          </div>
+        </div>
       )}
 
       <Modal open={tools} onClose={() => setTools(false)} title="أدوات" size="sm">
@@ -198,7 +274,23 @@ function ToolButton({ icon, title, sub, onClick }: { icon: React.ReactNode; titl
 
 // ───────── كارت المنتج ─────────
 
-function ProductRow({ pv, onAction, canProducts, canStock }: { pv: ProductView; onAction: (d: Dialog) => void; canProducts: boolean; canStock: boolean }) {
+function ProductRow({
+  pv,
+  onAction,
+  canProducts,
+  canStock,
+  selecting,
+  selected,
+  onToggle,
+}: {
+  pv: ProductView
+  onAction: (d: Dialog) => void
+  canProducts: boolean
+  canStock: boolean
+  selecting: boolean
+  selected: boolean
+  onToggle: () => void
+}) {
   const showCost = useCan('reports')
   const icon = useShop((s) => s.categories.find((c) => c.id === pv.p.category_id)?.icon ?? 'box')
   const hasParts = useShop((s) => (s.parts.byParent.get(pv.p.id)?.length ?? 0) > 0)
@@ -230,7 +322,17 @@ function ProductRow({ pv, onAction, canProducts, canStock }: { pv: ProductView; 
   ]
 
   return (
-    <div className={cx('card flex gap-3 p-3', pv.outOfStock && 'opacity-70')}>
+    <div
+      className={cx('card flex gap-3 p-3', pv.outOfStock && !selecting && 'opacity-70', selecting && 'cursor-pointer select-none', selected && 'border-primary bg-primary-light/40 ring-2 ring-primary/20')}
+      onClick={selecting ? onToggle : undefined}
+      role={selecting ? 'checkbox' : undefined}
+      aria-checked={selecting ? selected : undefined}
+    >
+      {selecting && (
+        <span className={cx('flex h-7 w-7 shrink-0 items-center justify-center self-center rounded-full border-2', selected ? 'border-primary bg-primary text-white' : 'border-line bg-white')}>
+          {selected && <Check className="h-4 w-4" />}
+        </span>
+      )}
       <ProductImage url={p.image_url} className="h-20 w-20 shrink-0 rounded-btn lg:h-24 lg:w-24" icon={<CategoryIcon icon={icon} className="h-8 w-8 opacity-40" />} />
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
@@ -246,7 +348,7 @@ function ProductRow({ pv, onAction, canProducts, canStock }: { pv: ProductView; 
               </div>
             )}
           </div>
-          <div className="relative flex shrink-0 items-center gap-1">
+          <div className={cx('relative flex shrink-0 items-center gap-1', selecting && 'hidden')}>
             {canStock && (
               <Button size="sm" variant="soft" className="h-9 px-2.5" icon={<PackagePlus className="h-4 w-4" />} onClick={() => onAction({ k: 'stock', pv })}>
                 كمية
