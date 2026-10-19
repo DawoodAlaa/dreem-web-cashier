@@ -1,4 +1,4 @@
-import { ChevronUp, Gift, LayoutGrid, Minus, PauseCircle, Plus, ShoppingCart, Trash2, UserRound, X, Zap } from 'lucide-react'
+import { Check, ChevronUp, Gift, ListPlus, LayoutGrid, Minus, PauseCircle, Plus, ShoppingCart, Trash2, UserRound, X, Zap } from 'lucide-react'
 import { memo, useEffect, useMemo, useState } from 'react'
 import { CustomerPicker, useCustomers } from '@/components/CustomerPicker'
 import { CategoryIcon } from '@/components/icons'
@@ -13,6 +13,7 @@ import { useNav } from '@/lib/nav'
 import { assemblable, canSellVariant, extraAvailable, firstSellable, splitSource, useShop } from '@/lib/shop'
 import { supabase } from '@/lib/supabase'
 import { run, toast, toastError } from '@/lib/toast'
+import { addShortage, useShortages } from '@/lib/shortages'
 import type { HeldCart, ProductView, Variant } from '@/lib/types'
 import { useLive } from '@/lib/useLive'
 
@@ -173,7 +174,6 @@ const SaleCard = memo(function SaleCard({ pv, compatible, onPick }: { pv: Produc
     <button
       type="button"
       onClick={() => onPick(pv)}
-      disabled={out}
       className={cx(
         'card flex h-[228px] w-full flex-col overflow-hidden text-right transition active:scale-[0.98] lg:h-[252px]',
         out ? 'opacity-50' : 'hover:border-primary/50 hover:shadow-md',
@@ -381,7 +381,76 @@ function AddToCart({ pv: initial, onClose }: { pv: ProductView; onClose: () => v
         )}
         <button type="submit" className="sr-only" tabIndex={-1} aria-hidden="true" />
       </form>
+      <ProductTools pv={pv} v={v} out={left != null && left <= 0} />
     </Modal>
+  )
+}
+
+/** جرد سريع للكمية + إضافة للنواقص (جوه نافذة المنتج) */
+function ProductTools({ pv, v, out }: { pv: ProductView; v: Variant; out: boolean }) {
+  const canStock = useCan('stock')
+  const { ready, missing, list } = useShortages()
+  const inList = list.some((x) => !x.done && x.product_id === pv.p.id)
+  const [count, setCount] = useState('')
+  const [busy, setBusy] = useState<string | null>(null)
+  const label = variantLabel(pv.p.name, pv.hasVariants ? v.name : null)
+
+  const saveCount = async () => {
+    const n = parseInt0(count)
+    if (n == null || n < 0) return toast('اكتب العدد الموجود', 'error')
+    setBusy('count')
+    const ok = await run(() => rpc('count_stock', { p_variant: v.id, p_counted: n }), `تم الجرد: ${label} = ${n}`)
+    setBusy(null)
+    if (ok) setCount('')
+  }
+  const addToShortages = async () => {
+    if (missing) return toast('قايمة النواقص لسه متفعّلتش. المدير يفعّلها من صفحة النواقص', 'error')
+    setBusy('short')
+    await run(() => addShortage(pv.p.id, null, pv.hasVariants && v.name ? v.name : null), `اتضاف ${pv.p.name} للنواقص`)
+    setBusy(null)
+  }
+
+  return (
+    <div className="mt-4 space-y-3 border-t border-line-soft pt-4">
+      {canStock && (
+        <div className="rounded-btn bg-bg p-3">
+          <div className="mb-2 flex items-center justify-between gap-2 text-sm">
+            <span className="font-extrabold">عدّ الموجود{pv.hasVariants ? ` (${v.name ?? ''})` : ''}</span>
+            <span className="text-ink-3">
+              في البرنامج: <b className="text-ink">{v.uncounted ? 'لسه متجردش' : v.stock}</b>
+            </span>
+          </div>
+          <form
+            className="flex gap-2"
+            onSubmit={(e) => {
+              e.preventDefault()
+              void saveCount()
+            }}
+          >
+            <NumInput decimal={false} placeholder="العدد اللي على الرف" value={count} onChange={(e) => setCount(e.target.value)} enterKeyHint="done" />
+            <Button type="submit" variant="soft" loading={busy === 'count'} disabled={count === ''} className="shrink-0">
+              حفظ العدد
+            </Button>
+          </form>
+        </div>
+      )}
+      {inList ? (
+        <div className="flex items-center justify-center gap-2 rounded-btn bg-green-light py-2.5 text-sm font-bold text-green">
+          <Check className="h-4 w-4" /> المنتج ده في النواقص
+        </div>
+      ) : (
+        <Button
+          block
+          variant={out ? 'danger-soft' : 'outline'}
+          icon={<ListPlus className="h-5 w-5" />}
+          loading={busy === 'short'}
+          disabled={!ready && !missing}
+          onClick={addToShortages}
+        >
+          {out ? 'المنتج خلص — ضيفه للنواقص' : 'ضيفه للنواقص'}
+        </Button>
+      )}
+    </div>
   )
 }
 

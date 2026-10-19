@@ -18,7 +18,7 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
 
 // وضع التطوير بس: نكشف المخازن عشان نجرب الشاشات ببيانات تجريبية
 if (import.meta.env.DEV) {
-  void Promise.all([import('./lib/auth'), import('./lib/shop'), import('./lib/cart'), import('./lib/supabase')]).then(([a, s, c, sb]) => {
-    Object.assign(window, { __stores: { useAuth: a.useAuth, useShop: s.useShop, useCart: c.useCart, supabase: sb.supabase } })
+  void Promise.all([import('./lib/auth'), import('./lib/shop'), import('./lib/cart'), import('./lib/supabase'), import('./lib/shortages')]).then(([a, s, c, sb, sh]) => {
+    Object.assign(window, { __stores: { useAuth: a.useAuth, useShop: s.useShop, useCart: c.useCart, supabase: sb.supabase, useShortages: sh.useShortages } })
   })
 }

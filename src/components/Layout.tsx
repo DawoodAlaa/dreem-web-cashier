@@ -4,6 +4,7 @@ import {
   CloudUpload,
   FileText,
   History,
+  ListTodo,
   KeyRound,
   LogOut,
   Menu,
@@ -27,6 +28,7 @@ import { changeMyPassword, signOut, useAuth } from '@/lib/auth'
 import { int } from '@/lib/format'
 import { PAGES, canOpen, go, pageLabel, useNav, type PageId } from '@/lib/nav'
 import { onStatus } from '@/lib/realtime'
+import { useShortageCount } from '@/lib/shortages'
 import { useShop } from '@/lib/shop'
 import { run } from '@/lib/toast'
 import { Button, Field, IconButton, Input, Modal, Tag, cx } from './ui'
@@ -43,6 +45,7 @@ const ICONS: Record<PageId, LucideIcon> = {
   drawer: Landmark,
   reports: BarChart3,
   log: History,
+  shortages: ListTodo,
   users: UserCog,
   backup: CloudUpload,
   settings: Settings,
@@ -52,6 +55,7 @@ function NavList({ onPick }: { onPick?: () => void }) {
   const profile = useAuth((s) => s.profile)
   const page = useNav((s) => s.page)
   const items = PAGES.filter((p) => canOpen(p.id, profile))
+  const shortages = useShortageCount()
   return (
     <nav className="space-y-1">
       {items.map((p) => {
@@ -71,7 +75,10 @@ function NavList({ onPick }: { onPick?: () => void }) {
             )}
           >
             <I className="h-5 w-5 shrink-0" />
-            {p.label}
+            <span className="flex-1 text-right">{p.label}</span>
+            {p.id === 'shortages' && shortages > 0 && (
+              <span className={cx('num rounded-full px-2 text-xs font-extrabold', on ? 'bg-white/25 text-white' : 'bg-red-light text-red')}>{shortages}</span>
+            )}
           </button>
         )
       })}

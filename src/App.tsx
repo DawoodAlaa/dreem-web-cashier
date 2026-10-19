@@ -18,6 +18,7 @@ const pages: Record<PageId, ComponentType> = {
   drawer: lazy(() => import('./pages/Drawer')),
   reports: lazy(() => import('./pages/Reports')),
   log: lazy(() => import('./pages/Log')),
+  shortages: lazy(() => import('./pages/Shortages')),
   users: lazy(() => import('./pages/Users')),
   backup: lazy(() => import('./pages/Backup')),
   settings: lazy(() => import('./pages/Settings')),

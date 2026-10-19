@@ -4,6 +4,7 @@ import { AppError, errMsg, q, rpc } from './api'
 import { startRealtime, stopRealtime } from './realtime'
 import { removeAccount, saveAccount, setLastUsername, touchAccount, updateSavedPassword } from './savedAccounts'
 import { startShop, stopShop } from './shop'
+import { startShortages, stopShortages } from './shortages'
 import { setRemember, supabase, usernameToEmail } from './supabase'
 import type { Perm, Profile } from './types'
 import { clearLiveCache } from './useLive'
@@ -81,6 +82,7 @@ async function applyProfile(p: Profile | null) {
     startRealtime()
     try {
       await startShop()
+      startShortages()
     } catch (e) {
       shopStarted = false
       useAuth.setState({ status: 'error', error: errMsg(e) })
@@ -108,6 +110,7 @@ async function stopApp() {
   shopStarted = false
   await stopRealtime()
   stopShop()
+  stopShortages()
   clearLiveCache()
 }
 
