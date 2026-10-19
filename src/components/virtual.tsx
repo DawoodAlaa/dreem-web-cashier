@@ -55,6 +55,28 @@ export function VirtualList<T>({
   )
 }
 
+/** آخر القايمة: بيحمّل الصفحة اللي بعدها لوحده لما يقرّب يظهر على الشاشة */
+export function LoadMore({ hasMore, loading, onMore, shown, total }: { hasMore: boolean; loading: boolean; onMore: () => void; shown: number; total: number | null }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const more = useRef(onMore)
+  more.current = onMore
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el || !hasMore) return
+    const io = new IntersectionObserver((e) => e[0]?.isIntersecting && more.current(), { rootMargin: '600px' })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [hasMore, shown])
+  if (!hasMore) return total != null && total > 0 ? <div className="py-4 text-center text-xs text-ink-3">ده كله ({total})</div> : null
+  return (
+    <div ref={ref} className="flex justify-center py-4">
+      <button type="button" className="chip" disabled={loading} onClick={onMore}>
+        {loading ? 'بيحمّل...' : `تحميل المزيد (اتعرض ${shown} من ${total ?? '؟'})`}
+      </button>
+    </div>
+  )
+}
+
 /** شبكة كروت: عدد الأعمدة بيتحسب من عرض المساحة */
 export function VirtualGrid<T>({
   items,

@@ -1,15 +1,16 @@
 import { ArrowRight, FileText, Plus, RotateCcw, Repeat, Trash2 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { ProductPicker } from '@/components/ProductPicker'
 import { Button, Checkbox, Chips, Empty, ErrorBox, Field, IconButton, KV, Loading, Modal, Money, NumInput, PageHeader, RangeFilter, SearchBox, Stat, StatGrid, Tag, TextArea, cx, useIsMobile, type Color } from '@/components/ui'
-import { VirtualList } from '@/components/virtual'
-import { fetchAll, nums, q as one, rpc } from '@/lib/api'
+import { LoadMore, VirtualList } from '@/components/virtual'
+import { nums, q as one, rpc } from '@/lib/api'
 import { useCan } from '@/lib/auth'
-import { EPS, dateTimeFmt, iso, makeRange, money, norm, parseInt0, parseNum, roundMoney, variantLabel, type DateRange } from '@/lib/format'
+import { EPS, dateTimeFmt, iso, makeRange, money, parseInt0, parseNum, roundMoney, variantLabel, type DateRange } from '@/lib/format'
 import { setArg, useNav } from '@/lib/nav'
 import { supabase } from '@/lib/supabase'
 import { run } from '@/lib/toast'
 import type { Adjustment, Invoice, InvoiceItem, ProductView, Variant } from '@/lib/types'
+import { safeSearch, useDebounced, usePaged } from '@/lib/usePaged'
 import { useLive } from '@/lib/useLive'
 
 type Status = 'all' | 'done' | 'return' | 'exchange' | 'voided'
@@ -45,32 +46,47 @@ export function invoiceNet(inv: Invoice) {
 
 const SELECT = '*, invoice_items(*), adjustments(*, adjustment_items(*))'
 
+/** طلب الفواتير بالفلاتر (بيتنفذ على السيرفر صفحة صفحة) */
+async function buildInvoicesQuery(range: DateRange, status: Status, search: string) {
+  const extra = status === 'done' ? ', live:adjustments(id)' : status === 'return' || status === 'exchange' ? ', f:adjustments!inner(id)' : ''
+  let qb = supabase
+    .from('invoices')
+    .select(SELECT + extra, { count: 'exact' })
+    .gte('created_at', iso(range.from))
+    .lt('created_at', iso(range.to))
+  if (status === 'voided') qb = qb.eq('voided', true)
+  else if (status === 'done') qb = qb.eq('voided', false).eq('live.voided', false).is('live', null)
+  else if (status === 'return' || status === 'exchange') qb = qb.eq('voided', false).eq('f.kind', status).eq('f.voided', false)
+  const s = safeSearch(search.replace('#', ''))
+  if (/^\d+$/.test(s)) qb = qb.eq('no', Number(s))
+  else if (s) {
+    // الفواتير اللي فيها منتج بالاسم ده
+    const items = (await one(supabase.from('invoice_items').select('invoice_id').ilike('product_name', `%${s}%`).limit(300))) as { invoice_id: number }[]
+    const ids = [...new Set(items.map((x) => x.invoice_id))]
+    qb = qb.or(`customer_name.ilike.*${s}*${ids.length ? `,id.in.(${ids.join(',')})` : ''}`)
+  }
+  return { q: qb.order('id', { ascending: false }) }
+}
+
 export default function InvoicesPage() {
   const mobile = useIsMobile()
   const arg = useNav((s) => s.arg)
   const [range, setRange] = useState<DateRange>(() => makeRange('today'))
   const [status, setStatus] = useState<Status>('all')
   const [q, setQ] = useState('')
-  const live = useLive(`inv:${iso(range.from)}:${iso(range.to)}`, ['invoices', 'adjustments'], async () => {
-    const rows = await fetchAll<Invoice>(() =>
-      supabase.from('invoices').select(SELECT).gte('created_at', iso(range.from)).lt('created_at', iso(range.to)).order('id', { ascending: false }),
-    )
-    return rows.map(fixInvoice)
+  const search = useDebounced(q)
+  const rk = `${iso(range.from)}:${iso(range.to)}`
+  const paged = usePaged<Invoice>(`inv:${rk}:${status}:${search}`, ['invoices', 'adjustments'], () => buildInvoicesQuery(range, status, search), fixInvoice, 50)
+  const summary = useLive(`invsum:${rk}`, ['invoices', 'adjustments'], async () => {
+    const j = await rpc<{ count: number; voided: number; net: number }>('invoices_summary', { p_from: iso(range.from), p_to: iso(range.to) })
+    return { count: Number(j.count), voided: Number(j.voided), net: Number(j.net) }
   })
 
-  const list = useMemo(() => {
-    const n = norm(q)
-    const num = q.trim().replace('#', '')
-    return (live.data ?? []).filter((inv) => {
-      if (status !== 'all' && invoiceStatus(inv).key !== status) return false
-      if (!n) return true
-      return String(inv.no) === num || norm(inv.customer_name).includes(n) || inv.invoice_items.some((it) => norm(it.product_name).includes(n))
-    })
-  }, [live.data, status, q])
-
-  const net = list.reduce((s, inv) => s + invoiceNet(inv), 0)
+  const list = paged.rows
+  const filtered = status !== 'all' || !!search.trim()
+  const sum = summary.data
   const selectedId = arg ? Number(arg) : null
-  const selected = selectedId ? (live.data?.find((i) => i.id === selectedId) ?? null) : null
+  const selected = selectedId ? (list.find((i) => i.id === selectedId) ?? null) : null
 
   const open = (id: number | null) => setArg(id == null ? null : String(id))
 
@@ -97,21 +113,25 @@ export default function InvoicesPage() {
         <SearchBox value={q} onChange={setQ} placeholder="بحث برقم الفاتورة أو اسم العميل أو المنتج" />
       </div>
       <StatGrid cols={3}>
-        <Stat label="عدد الفواتير" value={list.length} color="primary" />
-        <Stat label="صافي المبيعات" value={<Money v={net} />} color="green" />
-        <Stat label="متوسط الفاتورة" value={<Money v={list.length ? net / list.length : 0} />} />
+        <Stat label="عدد الفواتير" value={sum ? sum.count : '...'} color="primary" sub={sum?.voided ? `+ ${sum.voided} ملغاة` : undefined} />
+        <Stat label="صافي المبيعات" value={sum ? <Money v={sum.net} /> : '...'} color="green" />
+        <Stat label="متوسط الفاتورة" value={sum ? <Money v={sum.count ? sum.net / sum.count : 0} /> : '...'} />
       </StatGrid>
+      {filtered && paged.total != null && <div className="mb-2 text-sm font-bold text-ink-3">{paged.total} فاتورة مطابقة</div>}
 
       <div className="lg:flex lg:items-start lg:gap-4">
         <div className="min-w-0 flex-1">
-          {live.error && !live.data ? (
-            <ErrorBox text={live.error} onRetry={live.reload} />
-          ) : live.loading ? (
+          {paged.error && !list.length ? (
+            <ErrorBox text={paged.error} onRetry={paged.reload} />
+          ) : paged.loading ? (
             <Loading />
           ) : list.length === 0 ? (
-            <Empty icon={<FileText />} text="مفيش فواتير في الفترة دي" />
+            <Empty icon={<FileText />} text={filtered ? 'مفيش فواتير مطابقة' : 'مفيش فواتير في الفترة دي'} />
           ) : (
-            <VirtualList items={list} estimate={76} getKey={(i) => i.id} render={(inv) => <InvoiceRow inv={inv} active={inv.id === selectedId} onClick={() => open(inv.id)} />} />
+            <>
+              <VirtualList items={list} estimate={76} getKey={(i) => i.id} render={(inv) => <InvoiceRow inv={inv} active={inv.id === selectedId} onClick={() => open(inv.id)} />} />
+              <LoadMore hasMore={paged.hasMore} loading={paged.loadingMore} onMore={paged.loadMore} shown={list.length} total={paged.total} />
+            </>
           )}
         </div>
         {!mobile && (

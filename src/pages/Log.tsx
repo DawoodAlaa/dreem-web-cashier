@@ -20,13 +20,14 @@ import {
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Button, Empty, ErrorBox, Loading, Modal, PageHeader, RangeFilter, SearchBox, Select, Tag, confirmDialog, cx, type Color } from '@/components/ui'
-import { VirtualList } from '@/components/virtual'
-import { fetchAll, rpc } from '@/lib/api'
+import { LoadMore, VirtualList } from '@/components/virtual'
+import { rpc } from '@/lib/api'
 import { useCan } from '@/lib/auth'
-import { dateTimeFmt, iso, makeRange, norm, type DateRange } from '@/lib/format'
+import { dateTimeFmt, iso, makeRange, type DateRange } from '@/lib/format'
 import { supabase } from '@/lib/supabase'
 import { run } from '@/lib/toast'
 import type { ActivityLog } from '@/lib/types'
+import { safeSearch, useDebounced, usePaged } from '@/lib/usePaged'
 import { useLive } from '@/lib/useLive'
 
 function actionStyle(a: string): { icon: LucideIcon; color: Color } {
@@ -65,26 +66,33 @@ export default function LogPage() {
   const [type, setType] = useState('')
   const [q, setQ] = useState('')
   const [open, setOpen] = useState<ActivityLog | null>(null)
-  const live = useLive(`log:${iso(range.from)}:${iso(range.to)}`, ['activity_logs'], async () =>
-    fetchAll<ActivityLog>(() =>
-      supabase
+  const search = useDebounced(q)
+  const rk = `${iso(range.from)}:${iso(range.to)}`
+  const paged = usePaged<ActivityLog>(
+    `log:${rk}:${section}:${type}:${search}`,
+    ['activity_logs'],
+    async () => {
+      let qb = supabase
         .from('activity_logs')
-        .select('id, action, section, title, description, details, undoable, status, undone_at, undo_of, user_name, created_at')
+        .select('id, action, section, title, description, details, undoable, status, undone_at, undo_of, user_name, created_at', { count: 'exact' })
         .gte('created_at', iso(range.from))
         .lt('created_at', iso(range.to))
-        .order('id', { ascending: false }),
-    ),
+      if (section) qb = qb.eq('section', section)
+      if (type) qb = qb.eq('title', type)
+      const s = safeSearch(search)
+      if (s) qb = qb.or(`title.ilike.*${s}*,description.ilike.*${s}*,user_name.ilike.*${s}*`)
+      return { q: qb.order('id', { ascending: false }) }
+    },
+    undefined,
+    100,
   )
-  const all = live.data ?? []
-  const sections = useMemo(() => [...new Set(all.map((l) => l.section))].sort(), [all])
-  const types = useMemo(() => [...new Set(all.filter((l) => !section || l.section === section).map((l) => l.title))].sort(), [all, section])
-  const list = useMemo(() => {
-    const n = norm(q)
-    return all.filter(
-      (l) => (!section || l.section === section) && (!type || l.title === type) && (!n || norm(`${l.title} ${l.description} ${l.user_name ?? ''}`).includes(n)),
-    )
-  }, [all, section, type, q])
-  const current = open ? (all.find((l) => l.id === open.id) ?? open) : null
+  // الأقسام وأنواع العمليات في الفترة كلها (من السيرفر، مش من اللي اتحمّل بس)
+  const facets = useLive(`logfacets:${rk}`, ['activity_logs'], async () => (await rpc<{ section: string; title: string; n: number }[]>('log_facets', { p_from: iso(range.from), p_to: iso(range.to) })) ?? [])
+  const fx = facets.data ?? []
+  const sections = useMemo(() => [...new Set(fx.map((x) => x.section))].sort(), [fx])
+  const types = useMemo(() => [...new Set(fx.filter((x) => !section || x.section === section).map((x) => x.title))].sort(), [fx, section])
+  const list = paged.rows
+  const current = open ? (list.find((l) => l.id === open.id) ?? open) : null
 
   return (
     <div>
@@ -114,13 +122,15 @@ export default function LogPage() {
           <SearchBox value={q} onChange={setQ} className="min-w-[200px] flex-[2]" />
         </div>
       </div>
-      {live.error && !live.data ? (
-        <ErrorBox text={live.error} onRetry={live.reload} />
-      ) : live.loading ? (
+      {paged.total != null && list.length > 0 && <div className="mb-2 text-sm font-bold text-ink-3">{paged.total} عملية</div>}
+      {paged.error && !list.length ? (
+        <ErrorBox text={paged.error} onRetry={paged.reload} />
+      ) : paged.loading ? (
         <Loading />
       ) : list.length === 0 ? (
-        <Empty icon={<History />} text="مفيش عمليات في الفترة دي" />
+        <Empty icon={<History />} text={section || type || search ? 'مفيش عمليات مطابقة' : 'مفيش عمليات في الفترة دي'} />
       ) : (
+        <>
         <VirtualList
           items={list}
           estimate={82}
@@ -149,6 +159,8 @@ export default function LogPage() {
             )
           }}
         />
+        <LoadMore hasMore={paged.hasMore} loading={paged.loadingMore} onMore={paged.loadMore} shown={list.length} total={paged.total} />
+        </>
       )}
       {current && <LogDetail l={current} onClose={() => setOpen(null)} />}
     </div>
