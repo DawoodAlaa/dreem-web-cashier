@@ -1,0 +1,166 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    background: #f3f6fb;
+  }
+  body {
+    @apply bg-bg font-sans text-ink antialiased;
+    overflow-x: hidden;
+    overscroll-behavior-y: none;
+    font-feature-settings: 'tnum' 1;
+  }
+  input,
+  select,
+  textarea,
+  button {
+    font: inherit;
+    color: inherit;
+  }
+  /* الآيفون بيعمل zoom لو الخط أصغر من 16px في الخانات */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
+  :focus-visible {
+    outline: 2px solid #1570ef;
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-card border border-line bg-white shadow-card;
+  }
+  .btn {
+    @apply inline-flex h-10 select-none items-center justify-center gap-2 whitespace-nowrap rounded-btn px-4 text-[15px] font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 lg:h-12;
+    touch-action: manipulation;
+  }
+  .btn-sm {
+    @apply h-10 px-3 text-sm;
+  }
+  .btn-primary {
+    @apply bg-primary text-white hover:bg-primary-dark active:bg-primary-dark;
+  }
+  .btn-soft {
+    @apply bg-primary-light text-primary hover:bg-[#dce9ff];
+  }
+  .btn-outline {
+    @apply border border-line bg-white text-ink-2 hover:bg-bg;
+  }
+  .btn-danger {
+    @apply bg-red text-white hover:bg-[#c8143d];
+  }
+  .btn-danger-soft {
+    @apply bg-red-light text-red hover:bg-[#fbdbe1];
+  }
+  .btn-green {
+    @apply bg-green text-white hover:bg-[#12893e];
+  }
+  .btn-ghost {
+    @apply text-ink-2 hover:bg-bg;
+  }
+  .icon-btn {
+    @apply inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-btn text-ink-2 transition-colors hover:bg-bg active:bg-line-soft;
+    touch-action: manipulation;
+  }
+  .input {
+    @apply h-11 w-full min-w-0 rounded-btn border border-line bg-white px-3 text-base text-ink outline-none transition-colors placeholder:text-ink-3 focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:bg-bg lg:h-12;
+  }
+  textarea.input {
+    @apply h-auto py-2.5;
+  }
+  .label {
+    @apply mb-1.5 block text-sm font-bold text-ink-2;
+  }
+  .chip {
+    @apply inline-flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-line bg-white px-3.5 text-sm font-bold text-ink-2 transition-colors;
+    touch-action: manipulation;
+  }
+  .chip-on {
+    @apply border-primary bg-primary text-white;
+  }
+  .tag {
+    @apply inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-bold;
+  }
+  .num {
+    font-variant-numeric: tabular-nums;
+    direction: ltr;
+    unicode-bidi: isolate;
+  }
+}
+
+@layer utilities {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+.anim-sheet {
+  animation: sheet-up 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.anim-fade {
+  animation: fade-in 0.15s ease-out;
+}
+.anim-pop {
+  animation: pop-in 0.15s ease-out;
+}
+.anim-drawer {
+  animation: slide-in-right 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
