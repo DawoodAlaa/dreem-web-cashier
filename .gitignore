@@ -3,3 +3,5 @@ dist
 *.local
 .claude/settings.local.json
 scripts/amigo/*.json
+scripts/compat/*.txt
+scripts/compat/*.json
