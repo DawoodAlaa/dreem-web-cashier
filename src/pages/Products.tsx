@@ -11,7 +11,7 @@ import { q as one, rpc } from '@/lib/api'
 import { useCan } from '@/lib/auth'
 import { offerView } from '@/lib/cart'
 import { EPS, dateTimeFmt, money, norm, parseInt0, parseNum } from '@/lib/format'
-import { splitCategories, useShop } from '@/lib/shop'
+import { splitCategories, useShop, vPrice } from '@/lib/shop'
 import { supabase } from '@/lib/supabase'
 import { run, toast } from '@/lib/toast'
 import type { Category, Offer, ProductView, UsedPurchase } from '@/lib/types'
@@ -408,6 +408,7 @@ function ProductRow({
             pv.vs.map((v) => (
               <Tag key={v.id} color={v.uncounted ? 'orange' : v.stock <= 0 ? 'red' : 'gray'}>
                 {v.name}: {v.uncounted ? '؟' : v.stock}
+                {vPrice(pv, v).own && ` • ${money(vPrice(pv, v).sell)} ج.م`}
               </Tag>
             ))}
         </div>

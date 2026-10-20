@@ -7,6 +7,7 @@ import { nums, q as one, rpc } from '@/lib/api'
 import { useCan } from '@/lib/auth'
 import { EPS, dateTimeFmt, iso, makeRange, money, parseInt0, parseNum, roundMoney, variantLabel, type DateRange } from '@/lib/format'
 import { setArg, useNav } from '@/lib/nav'
+import { vPrice } from '@/lib/shop'
 import { supabase } from '@/lib/supabase'
 import { run } from '@/lib/toast'
 import type { Adjustment, Invoice, InvoiceItem, ProductView, Variant } from '@/lib/types'
@@ -366,7 +367,7 @@ function AdjustModal({ inv, mode, onClose }: { inv: Invoice; mode: 'return' | 'e
   for (const o of outs) {
     const pn = parseNum(o.price)
     if ((parseInt0(o.qty) ?? 0) <= 0) err = 'اكتب الكمية'
-    else if (pn == null || pn + EPS < o.pv.p.min_sell_price) err = `سعر "${o.pv.p.name}" أقل من أقل سعر بيع (${money(o.pv.p.min_sell_price)})`
+    else if (pn == null || pn + EPS < vPrice(o.pv, o.v).min) err = `سعر "${o.pv.p.name}" أقل من أقل سعر بيع (${money(vPrice(o.pv, o.v).min)})`
   }
 
   const setIn = (id: number, patch: Partial<{ qty: number; damaged: boolean }>) =>
@@ -471,7 +472,7 @@ function AdjustModal({ inv, mode, onClose }: { inv: Invoice; mode: 'return' | 'e
                     <Field label="الكمية">
                       <NumInput decimal={false} value={o.qty} onChange={(e) => setOuts((x) => x.map((y, j) => (j === i ? { ...y, qty: e.target.value } : y)))} />
                     </Field>
-                    <Field label={`السعر (أقل ${money(o.pv.p.min_sell_price)})`}>
+                    <Field label={`السعر (أقل ${money(vPrice(o.pv, o.v).min)})`}>
                       <NumInput value={o.price} onChange={(e) => setOuts((x) => x.map((y, j) => (j === i ? { ...y, price: e.target.value } : y)))} />
                     </Field>
                   </div>
@@ -503,7 +504,7 @@ function AdjustModal({ inv, mode, onClose }: { inv: Invoice; mode: 'return' | 'e
         open={picking}
         onClose={() => setPicking(false)}
         onlySellable
-        onPick={(pv, v) => setOuts((x) => [...x, { pv, v, qty: '1', price: money(pv.p.sell_price).replace(/,/g, '') }])}
+        onPick={(pv, v) => setOuts((x) => [...x, { pv, v, qty: '1', price: money(vPrice(pv, v).sell).replace(/,/g, '') }])}
       />
     </Modal>
   )

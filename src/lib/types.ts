@@ -60,6 +60,10 @@ export interface Variant {
   stock: number
   uncounted: boolean
   archived: boolean
+  /** سعر النوع لو مختلف عن المنتج (null = سعر المنتج) */
+  cost_price?: number | null
+  sell_price?: number | null
+  min_sell_price?: number | null
 }
 
 export interface ProductView {

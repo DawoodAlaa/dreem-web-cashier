@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { rpc } from '@/lib/api'
 import { useCan } from '@/lib/auth'
 import { money, parseInt0, parseNum, variantLabel } from '@/lib/format'
-import { LOSS_REASONS } from '@/lib/shop'
+import { LOSS_REASONS, vPrice } from '@/lib/shop'
 import { run } from '@/lib/toast'
 import type { ProductView, Variant } from '@/lib/types'
 import { ProductPicker } from './ProductPicker'
@@ -74,7 +74,7 @@ export function LossForm({ open, onClose, initial }: { open: boolean; onClose: (
                 <span className="text-ink-3">اختار المنتج</span>
               )}
             </button>
-            {item && showCost && <span className="mt-1 block text-xs text-ink-3">سعر الجملة {money(item.pv.p.cost_price)} ج.م</span>}
+            {item && showCost && <span className="mt-1 block text-xs text-ink-3">سعر الجملة {money(vPrice(item.pv, item.v).cost)} ج.م</span>}
           </Field>
         ) : (
           <div className="grid grid-cols-2 gap-3">

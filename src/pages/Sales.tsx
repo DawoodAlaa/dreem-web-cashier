@@ -10,7 +10,7 @@ import { useCan } from '@/lib/auth'
 import { availableFor, cart, checkStock, lineFrom, offerToLines, offerView, totals, useCart, type OfferView } from '@/lib/cart'
 import { EPS, dateTimeFmt, money, norm, parseInt0, parseNum, roundMoney, variantLabel } from '@/lib/format'
 import { useNav } from '@/lib/nav'
-import { assemblable, canSellVariant, extraAvailable, firstSellable, splitSource, useShop } from '@/lib/shop'
+import { assemblable, canSellVariant, extraAvailable, firstSellable, priceRange, splitSource, useShop, vPrice } from '@/lib/shop'
 import { supabase } from '@/lib/supabase'
 import { run, toast, toastError } from '@/lib/toast'
 import { addShortage, useShortages } from '@/lib/shortages'
@@ -146,6 +146,7 @@ export default function SalesPage() {
 
 const SaleCard = memo(function SaleCard({ pv, onPick }: { pv: ProductView; onPick: (v: ProductView) => void }) {
   const icon = useShop((s) => s.categories.find((c) => c.id === pv.p.category_id)?.icon ?? 'box')
+  const range = priceRange(pv)
   const split = splitSource(pv)
   const asm = !split && assemblable(pv)
   const out = pv.outOfStock && !split && !asm
@@ -174,8 +175,15 @@ const SaleCard = memo(function SaleCard({ pv, onPick }: { pv: ProductView; onPic
         <div className="line-clamp-2 text-[14px] font-bold leading-5 lg:text-[15px]">{pv.p.name}</div>
         <div className="mt-auto space-y-0.5">
           <div className="flex items-baseline justify-between gap-1">
-            <Money v={pv.p.sell_price} className="text-[17px] font-extrabold text-green" />
-            {pv.p.min_sell_price + EPS < pv.p.sell_price && <Money v={pv.p.min_sell_price} currency={false} className="text-xs font-bold text-orange" />}
+            {range.high - range.low > EPS ? (
+              <span className="text-[15px] font-extrabold text-green">
+                <span className="num">{money(range.low)}–{money(range.high)}</span>
+                <span className="text-[0.8em] font-medium"> ج.م</span>
+              </span>
+            ) : (
+              <Money v={range.low} className="text-[17px] font-extrabold text-green" />
+            )}
+            {range.min + EPS < range.low && <Money v={range.min} currency={false} className="text-xs font-bold text-orange" />}
           </div>
           <div className="truncate text-xs font-bold">{qty}</div>
         </div>
@@ -233,9 +241,10 @@ function AddToCart({ pv: initial, onClose }: { pv: ProductView; onClose: () => v
   const canDiscount = useCan('discount')
   const [variantId, setVariantId] = useState(() => firstSellable(initial).id)
   const [qty, setQty] = useState('1')
-  const [price, setPrice] = useState(money(initial.p.sell_price).replace(/,/g, ''))
+  const [price, setPrice] = useState(() => money(vPrice(initial, firstSellable(initial)).sell).replace(/,/g, ''))
   const v: Variant = pv.vs.find((x) => x.id === variantId) ?? pv.vs[0]
   const p = pv.p
+  const vp = vPrice(pv, v)
 
   // الشاحن وأجزاءه (لو المنتج بيتفك أو هو جزء من شاحن)
   const root = parts.byParent.has(p.id) ? pv : (parts.parentsOf.get(p.id) ?? []).map((id) => byId.get(id)).find(Boolean) ?? null
@@ -252,8 +261,8 @@ function AddToCart({ pv: initial, onClose }: { pv: ProductView; onClose: () => v
   if (qn <= 0) err = 'اكتب الكمية'
   else if (left != null && qn > left) err = left <= 0 ? 'الكمية المتاحة خلصت' : `الكمية المتاحة ${left} بس`
   else if (pn == null || pn <= 0) err = 'اكتب السعر'
-  else if (pn + EPS < p.min_sell_price) err = `أقل سعر بيع ${money(p.min_sell_price)}`
-  else if (!canDiscount && pn + EPS < p.sell_price) err = 'مش مسموحلك تقلل السعر. اطلب الصلاحية من المدير'
+  else if (pn + EPS < vp.min) err = `أقل سعر بيع ${money(vp.min)}`
+  else if (!canDiscount && pn + EPS < vp.sell) err = 'مش مسموحلك تقلل السعر. اطلب الصلاحية من المدير'
 
   const availText = (() => {
     if (v.uncounted) return 'لسه متجردش (متاح)'
@@ -291,10 +300,10 @@ function AddToCart({ pv: initial, onClose }: { pv: ProductView; onClose: () => v
           <div className="min-w-0 space-y-1">
             <div className="flex flex-wrap gap-1.5">
               <Tag color="green">
-                سعر البيع <Money v={p.sell_price} />
+                سعر البيع <Money v={vp.sell} />
               </Tag>
               <Tag color="orange">
-                أقل سعر <Money v={p.min_sell_price} />
+                أقل سعر <Money v={vp.min} />
               </Tag>
               {p.is_used && <Tag color="purple">مستعمل</Tag>}
             </div>
@@ -318,11 +327,18 @@ function AddToCart({ pv: initial, onClose }: { pv: ProductView; onClose: () => v
                     key={x.id}
                     type="button"
                     disabled={!ok}
-                    onClick={() => setVariantId(x.id)}
+                    onClick={() => {
+                      setVariantId(x.id)
+                      // سعر النوع الجديد (لو مختلف)
+                      setPrice(money(vPrice(pv, x).sell).replace(/,/g, ''))
+                    }}
                     className={cx('chip', x.id === v.id && 'chip-on', !ok && 'opacity-40 line-through')}
                   >
                     {x.name ?? 'عادي'}
-                    <span className={cx('text-xs', x.id === v.id ? 'text-white/80' : 'text-ink-3')}>{x.uncounted ? '؟' : x.stock}</span>
+                    <span className={cx('text-xs', x.id === v.id ? 'text-white/80' : 'text-ink-3')}>
+                      {x.uncounted ? '؟' : x.stock}
+                      {vPrice(pv, x).own && ` • ${money(vPrice(pv, x).sell)}`}
+                    </span>
                   </button>
                 )
               })}

@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { EPS, roundMoney } from './format'
-import { categoryName, extraAvailable, firstSellable, useShop } from './shop'
+import { categoryName, extraAvailable, firstSellable, useShop, vPrice } from './shop'
 import type { CartLine, Offer, ProductView, Variant } from './types'
 
 export type DiscMode = 'amount' | 'percent'
@@ -63,6 +63,7 @@ export function totals(s: Pick<CartState, 'lines' | 'discMode' | 'discValue'>): 
 }
 
 export function lineFrom(pv: ProductView, v: Variant, qty: number, price: number): CartLine {
+  const vp = vPrice(pv, v)
   return {
     variantId: v.id,
     productId: pv.p.id,
@@ -70,9 +71,9 @@ export function lineFrom(pv: ProductView, v: Variant, qty: number, price: number
     variantName: v.name,
     imagePath: pv.p.image_url,
     categoryName: categoryName(pv.p.category_id) || null,
-    costPrice: pv.p.cost_price,
-    basePrice: pv.p.sell_price,
-    minPrice: pv.p.min_sell_price,
+    costPrice: vp.cost,
+    basePrice: vp.sell,
+    minPrice: vp.min,
     unitPrice: roundMoney(price),
     qty,
     offerName: null,

@@ -6,6 +6,7 @@ import { Button, Empty, ErrorBox, Field, IconButton, Input, KV, Loading, Modal, 
 import { VirtualList } from '@/components/virtual'
 import { fetchAll, nums, q as one, rpc } from '@/lib/api'
 import { EPS, dateTimeFmt, iso, makeRange, money, norm, parseInt0, parseNum, roundMoney, variantLabel, type DateRange } from '@/lib/format'
+import { vPrice } from '@/lib/shop'
 import { supabase } from '@/lib/supabase'
 import { run, toast } from '@/lib/toast'
 import type { ProductView, Purchase, Supplier, SupplierTxn, Variant } from '@/lib/types'
@@ -285,7 +286,7 @@ function NewPurchase({ suppliers, onClose }: { suppliers: Supplier[]; onClose: (
                   <div className="min-w-0">
                     <div className="truncate font-bold">{variantLabel(l.pv.p.name, l.v.name)}</div>
                     <div className="text-xs text-ink-3">
-                      الموجود {l.v.uncounted ? '؟' : l.v.stock} • سعر الجملة الحالي {money(l.pv.p.cost_price)}
+                      الموجود {l.v.uncounted ? '؟' : l.v.stock} • سعر الجملة الحالي {money(vPrice(l.pv, l.v).cost)}
                     </div>
                   </div>
                   <IconButton label="حذف" className="h-9 w-9 text-red" onClick={() => setLines((x) => x.filter((_, j) => j !== i))}>
@@ -324,7 +325,7 @@ function NewPurchase({ suppliers, onClose }: { suppliers: Supplier[]; onClose: (
         open={picking}
         onClose={() => setPicking(false)}
         showCost
-        onPick={(pv, v) => setLines((x) => [...x, { pv, v, qty: '1', cost: money(pv.p.cost_price).replace(/,/g, '') }])}
+        onPick={(pv, v) => setLines((x) => [...x, { pv, v, qty: '1', cost: money(vPrice(pv, v).cost).replace(/,/g, '') }])}
       />
       {adding && <SupplierForm supplier={null} onClose={() => setAdding(false)} onSaved={(id) => setSupplierId(id)} />}
     </Modal>

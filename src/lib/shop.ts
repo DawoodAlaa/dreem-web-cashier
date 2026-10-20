@@ -44,7 +44,7 @@ const products = new Map<number, Product>()
 const variants = new Map<number, Variant>()
 
 const fixProduct = (r: Product) => nums(r, ['cost_price', 'sell_price', 'min_sell_price', 'min_stock', 'id', 'category_id'])
-const fixVariant = (r: Variant) => nums(r, ['stock', 'id', 'product_id'])
+const fixVariant = (r: Variant) => nums(r, ['stock', 'id', 'product_id', 'cost_price', 'sell_price', 'min_sell_price'])
 
 function buildViews() {
   const byProduct = new Map<number, Variant[]>()
@@ -251,6 +251,23 @@ export const reloadCatalog = () => loadCatalog()
 // ───────── مساعدات ─────────
 
 export const canSellVariant = (v: Variant) => v.uncounted || v.stock > 0
+
+/** سعر النوع الفعلي: سعره لو ليه سعر، غير كده سعر المنتج */
+export function vPrice(pv: ProductView, v: Variant) {
+  return {
+    cost: v.cost_price ?? pv.p.cost_price,
+    sell: v.sell_price ?? pv.p.sell_price,
+    min: v.min_sell_price ?? pv.p.min_sell_price,
+    own: v.sell_price != null || v.min_sell_price != null || v.cost_price != null,
+  }
+}
+
+/** أقل وأعلى سعر بيع وأقل سعر بين الأنواع (عشان الكارت) */
+export function priceRange(pv: ProductView) {
+  const ps = pv.vs.map((v) => vPrice(pv, v))
+  const sells = ps.map((x) => x.sell)
+  return { low: Math.min(...sells), high: Math.max(...sells), min: Math.min(...ps.map((x) => x.min)) }
+}
 
 export function firstSellable(pv: ProductView): Variant {
   return pv.vs.find(canSellVariant) ?? pv.vs[0]
