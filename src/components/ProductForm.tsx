@@ -1,4 +1,4 @@
-import { Camera, ImageOff, Plus, Trash2 } from 'lucide-react'
+import { Camera, ImageIcon, ImageOff, Plus, Trash2 } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { rpc } from '@/lib/api'
 import { useCan } from '@/lib/auth'
@@ -29,40 +29,54 @@ export function ProductImage({ url, className, icon }: { url: string | null; cla
   return <img src={url} alt="" loading="lazy" decoding="async" onError={() => setErr(true)} className={cx('bg-bg object-cover', className)} />
 }
 
+// موبايل أو تابلت (شاشة لمس): نعرض زرار "صوّر" يفتح الكاميرا على طول
+const isTouch = () => typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches
+
 export function ImagePicker({ value, onChange }: { value: string | null; onChange: (url: string | null) => void }) {
-  const ref = useRef<HTMLInputElement>(null)
+  const cameraRef = useRef<HTMLInputElement>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
+  const touch = isTouch()
+  const pick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]
+    e.target.value = ''
+    if (!f) return
+    setBusy(true)
+    try {
+      onChange(await uploadProductImage(f))
+    } catch (err) {
+      toastError(err)
+    }
+    setBusy(false)
+  }
+  const spin = busy ? <Spinner className="h-4 w-4" /> : null
   return (
     <div className="flex items-center gap-3">
       <ProductImage url={value} className="h-20 w-20 shrink-0 rounded-btn border border-line" />
       <div className="flex flex-wrap gap-2">
-        <Button variant="soft" size="sm" icon={busy ? <Spinner className="h-4 w-4" /> : <Camera className="h-4 w-4" />} disabled={busy} onClick={() => ref.current?.click()}>
-          {value ? 'تغيير الصورة' : 'إضافة صورة'}
-        </Button>
+        {touch ? (
+          <>
+            <Button variant="soft" size="sm" icon={spin ?? <Camera className="h-4 w-4" />} disabled={busy} onClick={() => cameraRef.current?.click()}>
+              صوّر
+            </Button>
+            <Button variant="outline" size="sm" icon={<ImageIcon className="h-4 w-4" />} disabled={busy} onClick={() => fileRef.current?.click()}>
+              من الصور
+            </Button>
+          </>
+        ) : (
+          <Button variant="soft" size="sm" icon={spin ?? <ImageIcon className="h-4 w-4" />} disabled={busy} onClick={() => fileRef.current?.click()}>
+            {value ? 'تغيير الصورة' : 'إضافة صورة'}
+          </Button>
+        )}
         {value && (
           <Button variant="ghost" size="sm" onClick={() => onChange(null)}>
             شيل الصورة
           </Button>
         )}
       </div>
-      <input
-        ref={ref}
-        type="file"
-        accept="image/*"
-        hidden
-        onChange={async (e) => {
-          const f = e.target.files?.[0]
-          e.target.value = ''
-          if (!f) return
-          setBusy(true)
-          try {
-            onChange(await uploadProductImage(f))
-          } catch (err) {
-            toastError(err)
-          }
-          setBusy(false)
-        }}
-      />
+      {/* capture="environment": الكاميرا الخلفية على آيفون وأندرويد */}
+      <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={pick} />
+      <input ref={fileRef} type="file" accept="image/*" hidden onChange={pick} />
     </div>
   )
 }
