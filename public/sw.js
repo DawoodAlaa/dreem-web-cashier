@@ -1,5 +1,5 @@
 // Service worker: الموقع يفتح بسرعة من الكاش (زي التطبيق). البيانات نفسها دايماً من السيرفر.
-const VERSION = 'v1'
+const VERSION = 'v2'
 const SHELL = `shell-${VERSION}`
 const ASSETS = `assets-${VERSION}`
 
@@ -23,12 +23,14 @@ self.addEventListener('fetch', (e) => {
   const sameOrigin = url.origin === self.location.origin
   const isFont = url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com'
   if (!sameOrigin && !isFont) return // طلبات السيرفر (Supabase) متتخزنش أبداً
+  if (sameOrigin && url.searchParams.has('u')) return // التشييك على التحديثات: من السيرفر على طول
 
-  // الصفحة نفسها: من النت الأول (عشان التحديثات توصل)، ولو مفيش نت من الكاش
+  // الصفحة نفسها: من النت الأول ومن غير كاش المتصفح (عشان التحديثات توصل)، ولو مفيش نت من الكاش
   if (req.mode === 'navigate') {
     e.respondWith(
-      fetch(req)
+      fetch(req.url, { cache: 'no-store', credentials: 'same-origin' })
         .then((res) => {
+          if (res.redirected) return fetch(req) // التحويلات (زي إضافة / في الآخر) يعملها المتصفح نفسه
           const copy = res.clone()
           caches.open(SHELL).then((c) => c.put('./index.html', copy))
           return res
