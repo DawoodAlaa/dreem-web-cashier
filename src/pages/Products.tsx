@@ -219,7 +219,7 @@ export default function ProductsPage() {
       )}
 
       {selecting && (
-        <div className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-line bg-white/95 shadow-sheet backdrop-blur lg:right-[248px]">
+        <div className="above-nav fixed inset-x-0 z-30 border-t border-line bg-white/95 shadow-sheet backdrop-blur lg:right-[248px]">
           <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-2 px-3 py-3 lg:px-6">
             <span className="text-[15px] font-extrabold">
               <span className="num">{sel.size}</span> محدد

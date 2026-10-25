@@ -3,6 +3,22 @@
 @tailwind utilities;
 
 @layer base {
+  /* ارتفاع شريط التنقل اللي تحت (الموبايل بس، وبيختفي والكيبورد مفتوح).
+     --bnav-pad: مسافة الحافة السفلية للآيفون لو الشريط مش ظاهر */
+  :root {
+    --bnav: 0px;
+    --bnav-pad: env(safe-area-inset-bottom);
+  }
+  @media (max-width: 999px) {
+    :root {
+      --bnav: calc(64px + env(safe-area-inset-bottom));
+      --bnav-pad: 0px;
+    }
+    html.kb {
+      --bnav: 0px;
+      --bnav-pad: 0px;
+    }
+  }
   html {
     -webkit-text-size-adjust: 100%;
     -webkit-tap-highlight-color: transparent;
@@ -109,6 +125,11 @@
   }
   .pt-safe {
     padding-top: env(safe-area-inset-top);
+  }
+  /* شريط ثابت تحت: بيقعد فوق شريط التنقل */
+  .above-nav {
+    bottom: var(--bnav);
+    padding-bottom: var(--bnav-pad);
   }
   .scrollbar-none {
     scrollbar-width: none;

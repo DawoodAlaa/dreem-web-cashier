@@ -1,10 +1,10 @@
-import { Check, ChevronUp, Gift, ListPlus, LayoutGrid, Minus, PauseCircle, Plus, ShoppingCart, Trash2, UserRound, X, Zap } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp, Gift, LayoutGrid, List, ListPlus, Minus, PauseCircle, Plus, ShoppingCart, Trash2, UserRound, X, Zap } from 'lucide-react'
 import { memo, useEffect, useMemo, useState } from 'react'
 import { CustomerPicker, useCustomers } from '@/components/CustomerPicker'
 import { CategoryIcon } from '@/components/icons'
 import { ProductForm, ProductImage } from '@/components/ProductForm'
 import { Button, Chips, Empty, Field, IconButton, Modal, Money, NumInput, SearchBox, Segmented, Select, Tag, TextArea, confirmDialog, cx, promptDialog, useIsMobile } from '@/components/ui'
-import { VirtualGrid } from '@/components/virtual'
+import { VirtualGrid, VirtualList } from '@/components/virtual'
 import { fetchAll, nums, rpc } from '@/lib/api'
 import { useCan } from '@/lib/auth'
 import { availableFor, cart, checkStock, lineFrom, offerToLines, offerView, totals, useCart, type OfferView } from '@/lib/cart'
@@ -20,6 +20,19 @@ import { useLive } from '@/lib/useLive'
 type Sort = 'new' | 'name' | 'price' | 'qty'
 const ALL = -1
 const OFFERS = -2
+
+// شكل العرض: قايمة مضغوطة (الافتراضي على الموبايل) أو كروت (الافتراضي على الكمبيوتر). بيتحفظ على الجهاز
+type SalesView = 'list' | 'grid'
+const VIEW_KEY = 'cd.salesView'
+function loadView(mobile: boolean): SalesView {
+  try {
+    const v = localStorage.getItem(VIEW_KEY)
+    if (v === 'list' || v === 'grid') return v
+  } catch {
+    /* ignore */
+  }
+  return mobile ? 'list' : 'grid'
+}
 
 export default function SalesPage() {
   const views = useShop((s) => s.views)
@@ -37,6 +50,16 @@ export default function SalesPage() {
   const [picked, setPicked] = useState<ProductView | null>(null)
   const [adding, setAdding] = useState(false)
   const [cartOpen, setCartOpen] = useState(false)
+  const [payNow, setPayNow] = useState(false)
+  const [view, setViewState] = useState<SalesView>(() => loadView(mobile))
+  const setView = (v: SalesView) => {
+    setViewState(v)
+    try {
+      localStorage.setItem(VIEW_KEY, v)
+    } catch {
+      /* ignore */
+    }
+  }
 
   useEffect(() => {
     if (salesQuery != null) {
@@ -80,23 +103,26 @@ export default function SalesPage() {
   return (
     <div className="lg:flex lg:gap-5">
       <div className="min-w-0 flex-1 pb-24 lg:pb-0">
-        <div className="mb-3 space-y-3">
-          <Chips options={catOptions} value={cat} onChange={setCat} />
-          <div className="flex flex-wrap gap-2">
-            <SearchBox value={q} onChange={setQ} placeholder="بحث باسم المنتج" className="min-w-[200px] flex-1" />
-            <Select value={sort} onChange={(e) => setSort(e.target.value as Sort)} className="w-auto min-w-[8.5rem] flex-none" aria-label="الترتيب">
+        {/* البحث والأصناف: ثابتين فوق وإنت بتنزل (الموبايل) */}
+        <div className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-10 -mx-3 mb-3 space-y-2 bg-bg/95 px-3 pb-2 pt-1 backdrop-blur lg:static lg:mx-0 lg:space-y-3 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
+          <div className="flex gap-2">
+            <SearchBox value={q} onChange={setQ} placeholder={mobile ? "بحث" : "بحث باسم المنتج"} className="min-w-0 flex-1" />
+            <Select value={sort} onChange={(e) => setSort(e.target.value as Sort)} className="w-[5.75rem] flex-none px-2 lg:w-[8.5rem] lg:px-3" aria-label="الترتيب">
               <option value="new">الأحدث</option>
               <option value="name">الاسم</option>
               <option value="price">السعر</option>
               <option value="qty">الكمية</option>
             </Select>
+            <IconButton label={view === 'list' ? 'عرض كروت' : 'عرض قايمة'} className="h-11 w-11 shrink-0 border border-line bg-white lg:h-12 lg:w-12" onClick={() => setView(view === 'list' ? 'grid' : 'list')}>
+              {view === 'list' ? <LayoutGrid className="h-5 w-5" /> : <List className="h-5 w-5" />}
+            </IconButton>
             {canAdd && (
-              <Button variant="soft" icon={<Zap className="h-5 w-5" />} onClick={() => setAdding(true)}>
-                <span className="hidden sm:inline">إضافة منتج سريع</span>
-                <span className="sm:hidden">إضافة</span>
+              <Button variant="soft" icon={<Zap className="h-5 w-5" />} onClick={() => setAdding(true)} aria-label="إضافة منتج سريع" className="shrink-0 px-3 lg:px-4">
+                <span className="hidden lg:inline">إضافة منتج سريع</span>
               </Button>
             )}
           </div>
+          <Chips scroll options={catOptions} value={cat} onChange={setCat} />
         </div>
 
         {cat === OFFERS ? (
@@ -111,6 +137,8 @@ export default function SalesPage() {
           )
         ) : list.length === 0 ? (
           <Empty icon={<LayoutGrid />} text={views.length ? 'مفيش منتجات مطابقة' : 'مفيش منتجات لسه'} />
+        ) : view === 'list' ? (
+          <VirtualList items={list} estimate={72} gap={8} getKey={(v) => v.p.id} render={(v) => <SaleRow pv={v} onPick={setPicked} />} />
         ) : (
           <VirtualGrid
             items={list}
@@ -136,7 +164,17 @@ export default function SalesPage() {
         </>
       )}
 
-      {picked && <AddToCart pv={picked} onClose={() => setPicked(null)} />}
+      {picked && (
+        <AddToCart
+          pv={picked}
+          onClose={() => setPicked(null)}
+          onSellNow={() => {
+            setPicked(null)
+            setPayNow(true)
+          }}
+        />
+      )}
+      {payNow && <QuickCheckout onClose={() => setPayNow(false)} />}
       {adding && <ProductForm open defaultCategory={cat >= 0 ? cat : null} onClose={() => setAdding(false)} />}
     </div>
   )
@@ -144,7 +182,8 @@ export default function SalesPage() {
 
 // ───────── كارت المنتج ─────────
 
-const SaleCard = memo(function SaleCard({ pv, onPick }: { pv: ProductView; onPick: (v: ProductView) => void }) {
+/** حالة المنتج في الكارت والصف: السعر، خلص ولا لأ، ونص الكمية */
+function useCardInfo(pv: ProductView) {
   const icon = useShop((s) => s.categories.find((c) => c.id === pv.p.category_id)?.icon ?? 'box')
   const range = priceRange(pv)
   const split = splitSource(pv)
@@ -156,39 +195,108 @@ const SaleCard = memo(function SaleCard({ pv, onPick }: { pv: ProductView; onPic
   else if (pv.allUncounted) qty = <span className="text-orange">لسه متجردش</span>
   else if (out) qty = <span className="text-red">خلص</span>
   else qty = <span className={pv.isLow ? 'text-orange' : 'text-ink-2'}>الكمية: <span className="num">{pv.stock}</span>{pv.uncounted ? ' +' : ''}</span>
+  return { icon, range, out, qty }
+}
+
+function PriceText({ range, big }: { range: ReturnType<typeof priceRange>; big?: boolean }) {
+  return range.high - range.low > EPS ? (
+    <span className="text-[15px] font-extrabold text-green">
+      <span className="num">{money(range.low)}–{money(range.high)}</span>
+      <span className="text-[0.8em] font-medium"> ج.م</span>
+    </span>
+  ) : (
+    <Money v={range.low} className={cx('font-extrabold text-green', big ? 'text-[17px]' : 'text-[16px]')} />
+  )
+}
+
+/** زرار + : المنتج اللي ملوش أنواع بيتضاف للسلة على طول بسعره، واللي ليه أنواع بيفتح الشباك تختار */
+function quickAdd(pv: ProductView, onPick: (v: ProductView) => void) {
+  if (pv.vs.length > 1) return onPick(pv)
+  const v = pv.vs[0]
+  const err = checkStock(v.id, 1)
+  if (err) return toast(err, 'error')
+  // الرقم اللي على الزرار وشريط السلة بيأكدوا الإضافة، فمفيش رسالة
+  cart.add(lineFrom(pv, v, 1, vPrice(pv, v).sell))
+  navigator.vibrate?.(15)
+}
+
+function QuickAddButton({ pv, out, onPick, className }: { pv: ProductView; out: boolean; onPick: (v: ProductView) => void; className?: string }) {
+  const n = useCart((s) => s.lines.reduce((a, l) => (l.productId === pv.p.id ? a + l.qty : a), 0))
   return (
     <button
       type="button"
-      onClick={() => onPick(pv)}
+      aria-label={`إضافة ${pv.p.name} للسلة`}
+      disabled={out}
+      onClick={() => quickAdd(pv, onPick)}
       className={cx(
-        'card flex h-[228px] w-full flex-col overflow-hidden text-right transition active:scale-[0.98] lg:h-[252px]',
-        out ? 'opacity-50' : 'hover:border-primary/50 hover:shadow-md',
+        'flex h-11 w-11 shrink-0 items-center justify-center rounded-btn transition active:scale-90 disabled:opacity-40',
+        n ? 'bg-primary text-white' : 'bg-primary-light text-primary',
+        className,
       )}
     >
-      <div className="relative h-[110px] w-full shrink-0 lg:h-[128px]">
-        <ProductImage url={pv.p.image_url} className="h-full w-full" icon={<CategoryIcon icon={icon} className="h-10 w-10 opacity-40" />} />
-        <div className="absolute right-1.5 top-1.5 flex flex-col items-start gap-1">
-          {pv.p.is_used && <Tag color="purple">مستعمل</Tag>}
-        </div>
-      </div>
-      <div className="flex min-h-0 flex-1 flex-col p-2.5">
-        <div className="line-clamp-2 text-[14px] font-bold leading-5 lg:text-[15px]">{pv.p.name}</div>
-        <div className="mt-auto space-y-0.5">
-          <div className="flex items-baseline justify-between gap-1">
-            {range.high - range.low > EPS ? (
-              <span className="text-[15px] font-extrabold text-green">
-                <span className="num">{money(range.low)}–{money(range.high)}</span>
-                <span className="text-[0.8em] font-medium"> ج.م</span>
-              </span>
-            ) : (
-              <Money v={range.low} className="text-[17px] font-extrabold text-green" />
-            )}
-            {range.min + EPS < range.low && <Money v={range.min} currency={false} className="text-xs font-bold text-orange" />}
-          </div>
-          <div className="truncate text-xs font-bold">{qty}</div>
-        </div>
-      </div>
+      <Plus className="h-6 w-6" strokeWidth={2.5} />
+      {n > 0 && <span className="num absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-green px-1 text-[11px] font-extrabold text-white ring-2 ring-white">{n}</span>}
     </button>
+  )
+}
+
+const SaleCard = memo(function SaleCard({ pv, onPick }: { pv: ProductView; onPick: (v: ProductView) => void }) {
+  const { icon, range, out, qty } = useCardInfo(pv)
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => onPick(pv)}
+        className={cx(
+          'card flex h-[228px] w-full flex-col overflow-hidden text-right transition active:scale-[0.98] lg:h-[252px]',
+          out ? 'opacity-50' : 'hover:border-primary/50 hover:shadow-md',
+        )}
+      >
+        <div className="relative h-[110px] w-full shrink-0 lg:h-[128px]">
+          <ProductImage url={pv.p.image_url} className="h-full w-full" icon={<CategoryIcon icon={icon} className="h-10 w-10 opacity-40" />} />
+          <div className="absolute right-1.5 top-1.5 flex flex-col items-start gap-1">
+            {pv.p.is_used && <Tag color="purple">مستعمل</Tag>}
+          </div>
+        </div>
+        <div className="flex min-h-0 flex-1 flex-col p-2.5">
+          <div className="line-clamp-2 text-[14px] font-bold leading-5 lg:text-[15px]">{pv.p.name}</div>
+          <div className="mt-auto space-y-0.5">
+            <div className="flex items-baseline justify-between gap-1">
+              <PriceText range={range} big />
+              {range.min + EPS < range.low && <Money v={range.min} currency={false} className="text-xs font-bold text-orange" />}
+            </div>
+            <div className="truncate text-xs font-bold">{qty}</div>
+          </div>
+        </div>
+      </button>
+      <QuickAddButton pv={pv} out={out} onPick={onPick} className="absolute left-1.5 top-1.5 shadow-card" />
+    </div>
+  )
+})
+
+/** صف مضغوط (الموبايل): صورة صغيرة، الاسم والكمية، السعر، وزرار + */
+const SaleRow = memo(function SaleRow({ pv, onPick }: { pv: ProductView; onPick: (v: ProductView) => void }) {
+  const { icon, range, out, qty } = useCardInfo(pv)
+  return (
+    <div className={cx('card flex h-[72px] items-center gap-2 pl-2 pr-2', out && 'opacity-50')}>
+      <button type="button" onClick={() => onPick(pv)} className="flex min-w-0 flex-1 items-center gap-2.5 self-stretch text-right active:opacity-70">
+        <ProductImage url={pv.p.image_url} className="h-12 w-12 shrink-0 rounded-[10px]" icon={<CategoryIcon icon={icon} className="h-6 w-6 opacity-40" />} />
+        <span className="min-w-0 flex-1">
+          <span className="line-clamp-2 text-[14px] font-bold leading-[18px]">
+            {pv.p.is_used && <Tag color="purple" className="ml-1 align-middle">مستعمل</Tag>}
+            {pv.p.name}
+          </span>
+          <span className="mt-0.5 block truncate text-xs font-bold">
+            {qty}
+            {pv.vs.length > 1 && <span className="text-ink-3"> • {pv.vs.length} أنواع</span>}
+          </span>
+        </span>
+        <span className="shrink-0 text-left">
+          <PriceText range={range} />
+        </span>
+      </button>
+      <QuickAddButton pv={pv} out={out} onPick={onPick} className="relative" />
+    </div>
   )
 })
 
@@ -234,7 +342,8 @@ function OfferCard({ o }: { o: OfferView }) {
 
 // ───────── نافذة الإضافة للسلة ─────────
 
-function AddToCart({ pv: initial, onClose }: { pv: ProductView; onClose: () => void }) {
+function AddToCart({ pv: initial, onClose, onSellNow }: { pv: ProductView; onClose: () => void; onSellNow: () => void }) {
+  const cartEmpty = useCart((s) => s.lines.length === 0)
   const pv = useShop((s) => s.byId.get(initial.p.id)) ?? initial
   const byId = useShop((s) => s.byId)
   const parts = useShop((s) => s.parts)
@@ -276,6 +385,12 @@ function AddToCart({ pv: initial, onClose }: { pv: ProductView; onClose: () => v
     toast(`اتضاف ${variantLabel(p.name, v.name)} للسلة`, 'info', 1200)
     onClose()
   }
+  // بيع على طول: يتضاف للسلة ويفتح الدفع (لو السلة فيها حاجات، بتتدفع كلها مع بعض)
+  const sellNow = () => {
+    if (err) return
+    cart.add(lineFrom(pv, v, qn, pn!))
+    onSellNow()
+  }
 
   return (
     <Modal
@@ -283,9 +398,14 @@ function AddToCart({ pv: initial, onClose }: { pv: ProductView; onClose: () => v
       onClose={onClose}
       title={p.name}
       footer={
-        <Button block onClick={add} disabled={!!err} icon={<ShoppingCart className="h-5 w-5" />}>
-          إضافة للسلة {pn && qn > 0 ? `• ${money(roundMoney(pn * qn))} ج.م` : ''}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" className="h-12 flex-1" onClick={add} disabled={!!err} icon={<ShoppingCart className="h-5 w-5" />}>
+            للسلة
+          </Button>
+          <Button variant="green" className="h-12 flex-[1.7] text-[16px]" onClick={sellNow} disabled={!!err}>
+            {cartEmpty ? `بيع على طول${pn && qn > 0 ? ` • ${money(roundMoney(pn * qn))}` : ''}` : 'ضيف وادفع الكل'}
+          </Button>
+        </div>
       }
     >
       <form
@@ -318,7 +438,7 @@ function AddToCart({ pv: initial, onClose }: { pv: ProductView; onClose: () => v
         </div>
 
         {pv.hasVariants && (
-          <Field label="اللون">
+          <Field label="النوع">
             <div className="flex flex-wrap gap-2">
               {pv.vs.map((x) => {
                 const ok = canSellVariant(x) || (pv.vs.length === 1 && (extra == null || extra > 0))
@@ -363,7 +483,7 @@ function AddToCart({ pv: initial, onClose }: { pv: ProductView; onClose: () => v
           </Field>
         </div>
         {err && qty !== '' && price !== '' && <div className="rounded-btn bg-red-light px-3 py-2 text-sm font-bold text-red">{err}</div>}
-        {left != null && left > 0 && used > 0 && <div className="text-xs text-ink-3">في السلة {used} من نفس اللون</div>}
+        {left != null && left > 0 && used > 0 && <div className="text-xs text-ink-3">في السلة {used} من نفس النوع</div>}
 
         {root && rootParts.length > 0 && (
           <div className="rounded-btn bg-purple-light/60 p-3 text-sm">
@@ -393,6 +513,7 @@ function ProductTools({ pv, v, out }: { pv: ProductView; v: Variant; out: boolea
   const inList = list.some((x) => !x.done && x.product_id === pv.p.id)
   const [count, setCount] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
+  const [more, setMore] = useState(false)
   const label = variantLabel(pv.p.name, pv.hasVariants ? v.name : null)
 
   const saveCount = async () => {
@@ -410,45 +531,61 @@ function ProductTools({ pv, v, out }: { pv: ProductView; v: Variant; out: boolea
     setBusy(null)
   }
 
-  return (
-    <div className="mt-4 space-y-3 border-t border-line-soft pt-4">
-      {canStock && (
-        <div className="rounded-btn bg-bg p-3">
-          <div className="mb-2 flex items-center justify-between gap-2 text-sm">
-            <span className="font-extrabold">عدّ الموجود{pv.hasVariants ? ` (${v.name ?? ''})` : ''}</span>
-            <span className="text-ink-3">
-              في البرنامج: <b className="text-ink">{v.uncounted ? 'لسه متجردش' : v.stock}</b>
-            </span>
-          </div>
-          <form
-            className="flex gap-2"
-            onSubmit={(e) => {
-              e.preventDefault()
-              void saveCount()
-            }}
-          >
-            <NumInput decimal={false} placeholder="العدد اللي على الرف" value={count} onChange={(e) => setCount(e.target.value)} enterKeyHint="done" />
-            <Button type="submit" variant="soft" loading={busy === 'count'} disabled={count === ''} className="shrink-0">
-              حفظ العدد
-            </Button>
-          </form>
-        </div>
-      )}
-      {inList ? (
-        <div className="flex items-center justify-center gap-2 rounded-btn bg-green-light py-2.5 text-sm font-bold text-green">
-          <Check className="h-4 w-4" /> المنتج ده في النواقص
-        </div>
-      ) : (
-        <Button
-          block
-          variant={out ? 'danger-soft' : 'outline'}
-          icon={<ListPlus className="h-5 w-5" />}
-          loading={busy === 'short'}
-          disabled={!ready && !missing}
-          onClick={addToShortages}
-        >
-          {out ? 'المنتج خلص — ضيفه للنواقص' : 'ضيفه للنواقص'}
+  const shortageEl = inList ? (
+    <div className="flex items-center justify-center gap-2 rounded-btn bg-green-light py-2.5 text-sm font-bold text-green">
+      <Check className="h-4 w-4" /> المنتج ده في النواقص
+    </div>
+  ) : (
+    <Button
+      block
+      variant={out ? 'danger-soft' : 'outline'}
+      icon={<ListPlus className="h-5 w-5" />}
+      loading={busy === 'short'}
+      disabled={!ready && !missing}
+      onClick={addToShortages}
+    >
+      {out ? 'المنتج خلص — ضيفه للنواقص' : 'ضيفه للنواقص'}
+    </Button>
+  )
+
+  const stockEl = canStock && (
+    <div className="rounded-btn bg-bg p-3">
+      <div className="mb-2 flex items-center justify-between gap-2 text-sm">
+        <span className="font-extrabold">عدّ الموجود{pv.hasVariants ? ` (${v.name ?? ''})` : ''}</span>
+        <span className="text-ink-3">
+          في البرنامج: <b className="text-ink">{v.uncounted ? 'لسه متجردش' : v.stock}</b>
+        </span>
+      </div>
+      <form
+        className="flex gap-2"
+        onSubmit={(e) => {
+          e.preventDefault()
+          void saveCount()
+        }}
+      >
+        <NumInput decimal={false} placeholder="العدد اللي على الرف" value={count} onChange={(e) => setCount(e.target.value)} enterKeyHint="done" />
+        <Button type="submit" variant="soft" loading={busy === 'count'} disabled={count === ''} className="shrink-0">
+          حفظ العدد
         </Button>
+      </form>
+    </div>
+  )
+
+  // الجرد والنواقص مستخبيين تحت زرار عشان الشباك يبقى للبيع بس. لو المنتج خلص، زرار النواقص بيبان على طول
+  return (
+    <div className="mt-4 space-y-2 border-t border-line-soft pt-3">
+      {out && shortageEl}
+      {(canStock || !out) && (
+        <button type="button" onClick={() => setMore((m) => !m)} className="flex w-full items-center justify-center gap-1.5 rounded-btn py-2 text-sm font-bold text-ink-3 hover:bg-bg">
+          {more ? 'إخفاء' : canStock ? (out ? 'جرد الكمية' : 'جرد الكمية والنواقص') : 'النواقص'}
+          <ChevronDown className={cx('h-4 w-4 transition-transform', more && 'rotate-180')} />
+        </button>
+      )}
+      {more && (
+        <div className="space-y-3">
+          {stockEl}
+          {!out && shortageEl}
+        </div>
       )}
     </div>
   )
@@ -460,8 +597,8 @@ function MobileCartBar({ onOpen }: { onOpen: () => void }) {
   const s = useCart()
   const t = totals(s)
   return (
-    <div className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-line bg-white/95 px-3 pt-2 shadow-sheet backdrop-blur lg:hidden">
-      <button type="button" onClick={onOpen} className={cx('mb-2 flex h-14 w-full items-center gap-3 rounded-btn px-4 text-white', t.count ? 'bg-primary' : 'bg-ink-3')}>
+    <div className="above-nav fixed inset-x-0 z-30 border-t border-line bg-white/95 px-3 pt-2 shadow-sheet backdrop-blur lg:hidden">
+      <button type="button" onClick={onOpen} className={cx('mb-2 flex h-12 w-full items-center gap-3 rounded-btn px-4 text-white', t.count ? 'bg-primary' : 'bg-ink-3')}>
         <ShoppingCart className="h-6 w-6 shrink-0" />
         <span className="flex-1 text-right text-[16px] font-extrabold">
           السلة: <span className="num">{t.count}</span> قطعة
@@ -688,6 +825,7 @@ function Checkout({ canCredit, customerName, onClose, onDone }: { canCredit: boo
   const t = totals(s)
   const [paid, setPaid] = useState(money(t.total).replace(/,/g, ''))
   const [note, setNote] = useState(s.note)
+  const mobile = useIsMobile()
   const pn = parseNum(paid) ?? 0
   const change = roundMoney(pn - t.total)
   const debt = roundMoney(t.total - pn)
@@ -754,7 +892,8 @@ function Checkout({ canCredit, customerName, onClose, onDone }: { canCredit: boo
           </div>
         </div>
         <Field label="المدفوع كاش">
-          <NumInput autoFocus className="h-14 text-2xl font-extrabold lg:h-14" value={paid} onChange={(e) => setPaid(e.target.value)} />
+          {/* على الموبايل منفتحش الكيبورد لوحده: أغلب البيع بيبقى بالمبلغ بالظبط */}
+          <NumInput autoFocus={!mobile} className="h-14 text-2xl font-extrabold lg:h-14" value={paid} onChange={(e) => setPaid(e.target.value)} />
         </Field>
         <div className="flex flex-wrap gap-2">
           {[t.total, 50, 100, 200, 500, 1000].filter((x, i, a) => x >= t.total && a.indexOf(x) === i).slice(0, 5).map((x) => (
@@ -783,6 +922,15 @@ function Checkout({ canCredit, customerName, onClose, onDone }: { canCredit: boo
       </form>
     </Modal>
   )
+}
+
+/** الدفع على طول من شباك المنتج (من غير ما تفتح السلة) */
+function QuickCheckout({ onClose }: { onClose: () => void }) {
+  const canCredit = useCan('credit')
+  const customerId = useCart((s) => s.customerId)
+  const { data: customers } = useCustomers()
+  const name = customers?.find((c) => c.id === customerId)?.name ?? null
+  return <Checkout canCredit={canCredit} customerName={name} onClose={onClose} />
 }
 
 // ───────── الفواتير المعلقة ─────────

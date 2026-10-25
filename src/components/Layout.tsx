@@ -288,6 +288,77 @@ function ChangePassword({ open, onClose }: { open: boolean; onClose: () => void 
   )
 }
 
+// ───────── شريط التنقل اللي تحت (الموبايل) ─────────
+
+// أهم الصفحات بالترتيب، وبناخد أول 4 مسموحة للمستخدم. الباقي في "المزيد"
+const TABS: PageId[] = ['sales', 'invoices', 'products', 'reports', 'drawer', 'customers', 'expenses', 'inventory']
+const SHORT: Partial<Record<PageId, string>> = { reports: 'الأرباح', drawer: 'الدرج', customers: 'العملاء', inventory: 'الجرد' }
+
+/** وإحنا بنكتب على الموبايل الكيبورد بيطلع، فبنخفي الشريط عشان ميغطيش الشاشة */
+function useTyping() {
+  const [typing, setTyping] = useState(false)
+  useEffect(() => {
+    const isField = (el: Element | null) =>
+      !!el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && !['checkbox', 'radio', 'button', 'submit', 'file'].includes((el as HTMLInputElement).type)))
+    let t = 0
+    const on = (e: FocusEvent) => {
+      clearTimeout(t)
+      if (isField(e.target as Element)) setTyping(true)
+    }
+    const off = () => {
+      clearTimeout(t)
+      t = window.setTimeout(() => setTyping(isField(document.activeElement)), 120)
+    }
+    document.addEventListener('focusin', on)
+    document.addEventListener('focusout', off)
+    return () => {
+      clearTimeout(t)
+      document.removeEventListener('focusin', on)
+      document.removeEventListener('focusout', off)
+    }
+  }, [])
+  useEffect(() => {
+    document.documentElement.classList.toggle('kb', typing)
+  }, [typing])
+  return typing
+}
+
+function BottomNav({ onMore }: { onMore: () => void }) {
+  const profile = useAuth((s) => s.profile)
+  const page = useNav((s) => s.page)
+  const shortages = useShortageCount()
+  const typing = useTyping()
+  const tabs = TABS.filter((id) => canOpen(id, profile)).slice(0, 4)
+  const inMore = !tabs.includes(page)
+  if (typing) return null
+  const item = (on: boolean) => cx('flex h-16 flex-1 flex-col items-center justify-center gap-1 text-[12px] font-bold transition-colors', on ? 'text-primary' : 'text-ink-3')
+  return (
+    <nav className="pb-safe fixed inset-x-0 bottom-0 z-30 border-t border-line bg-white/95 backdrop-blur lg:hidden">
+      <div className="flex">
+        {tabs.map((id) => {
+          const I = ICONS[id]
+          const on = id === page
+          return (
+            <button key={id} type="button" className={item(on)} onClick={() => go(id)}>
+              <span className={cx('flex h-8 w-14 items-center justify-center rounded-full transition-colors', on && 'bg-primary-light')}>
+                <I className="h-[22px] w-[22px]" />
+              </span>
+              {SHORT[id] ?? pageLabel(id)}
+            </button>
+          )
+        })}
+        <button type="button" className={item(inMore)} onClick={onMore}>
+          <span className={cx('relative flex h-8 w-14 items-center justify-center rounded-full transition-colors', inMore && 'bg-primary-light')}>
+            <Menu className="h-[22px] w-[22px]" />
+            {shortages > 0 && !tabs.includes('shortages') && <span className="absolute right-3 top-0.5 h-2.5 w-2.5 rounded-full bg-red ring-2 ring-white" />}
+          </span>
+          {inMore ? pageLabel(page) : 'المزيد'}
+        </button>
+      </div>
+    </nav>
+  )
+}
+
 function QuickSearch() {
   const [q, setQ] = useState('')
   return (
@@ -330,10 +401,7 @@ export function Layout({ children }: { children: ReactNode }) {
       {/* الشريط اللي فوق */}
       <header className="pt-safe sticky top-0 z-20 border-b border-line bg-white/95 backdrop-blur">
         <div className="flex h-14 items-center gap-2 px-2 lg:h-16 lg:px-5">
-          <IconButton label="القايمة" className="lg:hidden" onClick={() => setMenu(true)}>
-            <Menu className="h-6 w-6" />
-          </IconButton>
-          <div className="min-w-0 flex-1 truncate text-lg font-extrabold lg:hidden">{pageLabel(page)}</div>
+          <div className="min-w-0 flex-1 truncate px-2 text-lg font-extrabold lg:hidden">{pageLabel(page)}</div>
           <div className="hidden flex-1 items-center gap-4 lg:flex">
             <span className="text-sm font-bold text-ink-3">كاشير الموبايلات</span>
             {profile && canOpen('sales', profile) && <QuickSearch />}
@@ -377,7 +445,8 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
       )}
 
-      <main className="mx-auto w-full max-w-[1600px] px-3 py-4 lg:px-6 lg:py-6">{children}</main>
+      <main className="mx-auto w-full max-w-[1600px] px-3 pb-[calc(var(--bnav)+1rem)] pt-4 lg:px-6 lg:py-6">{children}</main>
+      <BottomNav onMore={() => setMenu(true)} />
     </div>
   )
 }

@@ -281,14 +281,17 @@ export function Chips<T extends string | number>({
   value,
   onChange,
   className,
+  scroll,
 }: {
   options: { value: T; label: ReactNode; count?: number }[]
   value: T
   onChange: (v: T) => void
   className?: string
+  /** صف واحد بيتسحب بالعرض على الموبايل (ويلف عادي على الكمبيوتر) */
+  scroll?: boolean
 }) {
   return (
-    <div className={cx('flex flex-wrap gap-2', className)}>
+    <div className={cx('flex gap-2', scroll ? 'scrollbar-none -mx-3 overflow-x-auto px-3 lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0' : 'flex-wrap', className)}>
       {options.map((o) => (
         <button key={String(o.value)} type="button" className={cx('chip', o.value === value && 'chip-on')} onClick={() => onChange(o.value)}>
           {o.label}
