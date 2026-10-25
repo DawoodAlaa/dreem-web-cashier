@@ -4,6 +4,7 @@ import type { Perm, Profile } from './types'
 
 export type PageId =
   | 'sales'
+  | 'today'
   | 'invoices'
   | 'products'
   | 'inventory'
@@ -22,6 +23,7 @@ export type PageId =
 
 export const PAGES: { id: PageId; label: string; perms: Perm[] | 'owner' }[] = [
   { id: 'sales', label: 'المبيعات', perms: ['sell'] },
+  { id: 'today', label: 'النهارده', perms: ['reports', 'drawer', 'log'] },
   { id: 'invoices', label: 'الفواتير', perms: ['sell', 'returns'] },
   { id: 'products', label: 'المنتجات', perms: ['products', 'stock'] },
   { id: 'inventory', label: 'جرد المخزون', perms: ['stock'] },

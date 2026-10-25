@@ -27,6 +27,7 @@ function UpdateBar() {
 
 const pages: Record<PageId, ComponentType> = {
   sales: SalesPage,
+  today: lazy(retryChunk(() => import('./pages/Today'))),
   invoices: lazy(retryChunk(() => import('./pages/Invoices'))),
   products: lazy(retryChunk(() => import('./pages/Products'))),
   inventory: lazy(retryChunk(() => import('./pages/Inventory'))),

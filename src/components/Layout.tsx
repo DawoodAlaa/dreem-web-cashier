@@ -17,6 +17,7 @@ import {
   Users,
   Wallet,
   HandCoins,
+  House,
   WifiOff,
   ClipboardCheck,
   Landmark,
@@ -36,6 +37,7 @@ import { Button, Field, IconButton, Input, Modal, Tag, cx } from './ui'
 
 const ICONS: Record<PageId, LucideIcon> = {
   sales: ShoppingCart,
+  today: House,
   invoices: FileText,
   products: PackageSearch,
   inventory: ClipboardCheck,
@@ -291,7 +293,7 @@ function ChangePassword({ open, onClose }: { open: boolean; onClose: () => void 
 // ───────── شريط التنقل اللي تحت (الموبايل) ─────────
 
 // أهم الصفحات بالترتيب، وبناخد أول 4 مسموحة للمستخدم. الباقي في "المزيد"
-const TABS: PageId[] = ['sales', 'invoices', 'products', 'reports', 'drawer', 'customers', 'expenses', 'inventory']
+const TABS: PageId[] = ['sales', 'today', 'invoices', 'products', 'reports', 'drawer', 'customers', 'expenses', 'inventory']
 const SHORT: Partial<Record<PageId, string>> = { reports: 'الأرباح', drawer: 'الدرج', customers: 'العملاء', inventory: 'الجرد' }
 
 /** وإحنا بنكتب على الموبايل الكيبورد بيطلع، فبنخفي الشريط عشان ميغطيش الشاشة */
