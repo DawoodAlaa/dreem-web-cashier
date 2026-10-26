@@ -13,7 +13,7 @@ import { useNav } from '@/lib/nav'
 import { assemblable, canSellVariant, extraAvailable, firstSellable, priceRange, splitSource, useShop, useTrackStock, vPrice } from '@/lib/shop'
 import { supabase } from '@/lib/supabase'
 import { run, toast, toastError } from '@/lib/toast'
-import { addShortage, useShortages } from '@/lib/shortages'
+import { addShortage, setShortageDone, useShortageStatus, useShortages, type ShortageStatus } from '@/lib/shortages'
 import type { HeldCart, ProductView, Variant } from '@/lib/types'
 import { useLive } from '@/lib/useLive'
 
@@ -186,9 +186,10 @@ export default function SalesPage() {
 function useCardInfo(pv: ProductView) {
   const icon = useShop((s) => s.categories.find((c) => c.id === pv.p.category_id)?.icon ?? 'box')
   const track = useTrackStock()
+  const flag = useShortageStatus(pv.p.id)
   const range = priceRange(pv)
   // متابعة الكميات مقفولة: مفيش كمية ولا "خلص"
-  if (!track) return { icon, range, out: false, qty: null as React.ReactNode }
+  if (!track) return { icon, range, out: false, qty: null as React.ReactNode, flag }
   const split = splitSource(pv)
   const asm = !split && assemblable(pv)
   const out = pv.outOfStock && !split && !asm
@@ -198,7 +199,17 @@ function useCardInfo(pv: ProductView) {
   else if (pv.allUncounted) qty = <span className="text-orange">لسه متجردش</span>
   else if (out) qty = <span className="text-red">خلص</span>
   else qty = <span className={pv.isLow ? 'text-orange' : 'text-ink-2'}>الكمية: <span className="num">{pv.stock}</span>{pv.uncounted ? ' +' : ''}</span>
-  return { icon, range, out, qty }
+  return { icon, range, out, qty, flag }
+}
+
+/** علامة النواقص على المنتج: ناقص (خلص) أو قرب يخلص */
+function FlagTag({ flag, className }: { flag: ShortageStatus | null; className?: string }) {
+  if (!flag) return null
+  return (
+    <Tag color={flag === 'out' ? 'red' : 'orange'} className={className}>
+      {flag === 'out' ? 'ناقص' : 'قرب يخلص'}
+    </Tag>
+  )
 }
 
 function PriceText({ range, big }: { range: ReturnType<typeof priceRange>; big?: boolean }) {
@@ -244,7 +255,7 @@ function QuickAddButton({ pv, out, onPick, className }: { pv: ProductView; out: 
 }
 
 const SaleCard = memo(function SaleCard({ pv, onPick }: { pv: ProductView; onPick: (v: ProductView) => void }) {
-  const { icon, range, out, qty } = useCardInfo(pv)
+  const { icon, range, out, qty, flag } = useCardInfo(pv)
   return (
     <div className="relative">
       <button
@@ -259,6 +270,7 @@ const SaleCard = memo(function SaleCard({ pv, onPick }: { pv: ProductView; onPic
           <ProductImage url={pv.p.image_url} className="h-full w-full" icon={<CategoryIcon icon={icon} className="h-10 w-10 opacity-40" />} />
           <div className="absolute right-1.5 top-1.5 flex flex-col items-start gap-1">
             {pv.p.is_used && <Tag color="purple">مستعمل</Tag>}
+            <FlagTag flag={flag} className="shadow-card" />
           </div>
         </div>
         <div className="flex min-h-0 flex-1 flex-col p-2.5">
@@ -279,7 +291,7 @@ const SaleCard = memo(function SaleCard({ pv, onPick }: { pv: ProductView; onPic
 
 /** صف مضغوط (الموبايل): صورة صغيرة، الاسم والكمية، السعر، وزرار + */
 const SaleRow = memo(function SaleRow({ pv, onPick }: { pv: ProductView; onPick: (v: ProductView) => void }) {
-  const { icon, range, out, qty } = useCardInfo(pv)
+  const { icon, range, out, qty, flag } = useCardInfo(pv)
   return (
     <div className={cx('card flex h-[72px] items-center gap-2 pl-2 pr-2', out && 'opacity-50')}>
       <button type="button" onClick={() => onPick(pv)} className="flex min-w-0 flex-1 items-center gap-2.5 self-stretch text-right active:opacity-70">
@@ -289,8 +301,9 @@ const SaleRow = memo(function SaleRow({ pv, onPick }: { pv: ProductView; onPick:
             {pv.p.is_used && <Tag color="purple" className="ml-1 align-middle">مستعمل</Tag>}
             {pv.p.name}
           </span>
-          {(qty || pv.vs.length > 1) && (
+          {(qty || flag || pv.vs.length > 1) && (
             <span className="mt-0.5 block truncate text-xs font-bold">
+              <FlagTag flag={flag} className="ml-1.5 align-middle" />
               {qty}
               {pv.vs.length > 1 && <span className="text-ink-3">{qty ? ' • ' : ''}{pv.vs.length} أنواع</span>}
             </span>
@@ -517,7 +530,8 @@ function ProductTools({ pv, v, out }: { pv: ProductView; v: Variant; out: boolea
   const track = useTrackStock()
   const canStock = useCan('stock') && track
   const { ready, missing, list } = useShortages()
-  const inList = list.some((x) => !x.done && x.product_id === pv.p.id)
+  const entry = list.find((x) => !x.done && x.product_id === pv.p.id)
+  const status: ShortageStatus | null = entry ? (entry.low ? 'low' : 'out') : null
   const [count, setCount] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
   const [more, setMore] = useState(false)
@@ -531,28 +545,43 @@ function ProductTools({ pv, v, out }: { pv: ProductView; v: Variant; out: boolea
     setBusy(null)
     if (ok) setCount('')
   }
-  const addToShortages = async () => {
+  const mark = async (low: boolean) => {
     if (missing) return toast('قايمة النواقص لسه متفعّلتش. المدير يفعّلها من صفحة النواقص', 'error')
-    setBusy('short')
-    await run(() => addShortage(pv.p.id, null, pv.hasVariants && v.name ? v.name : null), `اتضاف ${pv.p.name} للنواقص`)
+    setBusy(low ? 'low' : 'short')
+    await run(() => addShortage(pv.p.id, null, entry ? null : pv.hasVariants && v.name ? v.name : null, low), low ? `اتعلّم إن ${pv.p.name} قرب يخلص` : `اتضاف ${pv.p.name} للنواقص`)
+    setBusy(null)
+  }
+  const brought = async () => {
+    if (!entry) return
+    setBusy('done')
+    await run(() => setShortageDone(entry.id, true), 'اتعلّم إنه اتجاب')
     setBusy(null)
   }
 
-  const shortageEl = inList ? (
-    <div className="flex items-center justify-center gap-2 rounded-btn bg-green-light py-2.5 text-sm font-bold text-green">
-      <Check className="h-4 w-4" /> المنتج ده في النواقص
+  // النواقص: قرب يخلص / خلص، ولو متعلّم يتغيّر أو يتعلّم إنه اتجاب
+  const shortageEl = (
+    <div className="space-y-2">
+      {status && (
+        <div className={cx('flex items-center justify-between gap-2 rounded-btn px-3 py-2 text-sm font-bold', status === 'out' ? 'bg-red-light text-red' : 'bg-orange-light text-orange')}>
+          <span>{status === 'out' ? 'المنتج ده في النواقص (ناقص)' : 'متعلّم إنه قرب يخلص'}</span>
+          <Button size="sm" variant="green" className="h-9 px-3" icon={<Check className="h-4 w-4" />} loading={busy === 'done'} onClick={brought}>
+            اتجاب
+          </Button>
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-2">
+        {status !== 'low' && (
+          <Button variant="outline" className={cx('border-orange/40 text-orange', status === 'out' && 'col-span-2')} loading={busy === 'low'} disabled={!ready && !missing} onClick={() => mark(true)}>
+            قرب يخلص
+          </Button>
+        )}
+        {status !== 'out' && (
+          <Button variant="danger-soft" className={cx(status === 'low' && 'col-span-2')} icon={<ListPlus className="h-5 w-5" />} loading={busy === 'short'} disabled={!ready && !missing} onClick={() => mark(false)}>
+            خلص — للنواقص
+          </Button>
+        )}
+      </div>
     </div>
-  ) : (
-    <Button
-      block
-      variant={out ? 'danger-soft' : 'outline'}
-      icon={<ListPlus className="h-5 w-5" />}
-      loading={busy === 'short'}
-      disabled={!ready && !missing}
-      onClick={addToShortages}
-    >
-      {out ? 'المنتج خلص — ضيفه للنواقص' : 'ضيفه للنواقص'}
-    </Button>
   )
 
   const stockEl = canStock && (

@@ -19,7 +19,11 @@ export interface Shortage {
   done: boolean
   done_at: string | null
   created_at: string
+  /** قرب يخلص (لسه موجود). false = خلص */
+  low?: boolean
 }
+
+export type ShortageStatus = 'out' | 'low'
 
 interface State {
   ready: boolean // الجدول موجود على السيرفر
@@ -71,9 +75,18 @@ export function stopShortages() {
 
 export const reloadShortages = () => load()
 
-export async function addShortage(productId: number | null, name: string | null, note: string | null) {
-  await rpc('shortage_add', { p_product: productId, p_name: name, p_note: note })
+/** إضافة للنواقص (خلص) أو "قرب يخلص". لو المنتج في القايمة بالفعل حالته بتتغير بس */
+export async function addShortage(productId: number | null, name: string | null, note: string | null, low = false) {
+  await rpc('shortage_mark', { p_product: productId, p_name: name, p_note: note, p_low: low })
   await load()
+}
+
+/** حالة المنتج في النواقص المفتوحة (خلص / قرب يخلص) أو null */
+export function useShortageStatus(productId: number): ShortageStatus | null {
+  return useShortages((s) => {
+    const x = s.list.find((y) => !y.done && y.product_id === productId)
+    return x ? (x.low ? 'low' : 'out') : null
+  })
 }
 export async function setShortageDone(id: number, done: boolean) {
   await rpc('shortage_done', { p_id: id, p_done: done })

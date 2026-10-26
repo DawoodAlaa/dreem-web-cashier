@@ -1,11 +1,11 @@
-import { AlertTriangle, Plus, Wallet } from 'lucide-react'
+import { AlertTriangle, Plus, Trash2, Wallet } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { LossForm } from '@/components/LossForm'
-import { Button, Empty, ErrorBox, Field, Input, Loading, Modal, Money, NumInput, PageHeader, RangeFilter, SearchBox, Segmented, Select, Stat, StatGrid, Tag, TextArea } from '@/components/ui'
+import { Button, Empty, ErrorBox, Field, Input, Loading, Modal, Money, NumInput, PageHeader, RangeFilter, SearchBox, Segmented, Select, Stat, StatGrid, Tag, TextArea, confirmDialog } from '@/components/ui'
 import { VirtualList } from '@/components/virtual'
 import { fetchAll, nums, rpc } from '@/lib/api'
 import { useCan } from '@/lib/auth'
-import { dateFmt, dateTimeFmt, fromYmd, int, iso, makeRange, norm, parseNum, ymd, type DateRange } from '@/lib/format'
+import { dateFmt, dateTimeFmt, fromYmd, int, iso, makeRange, money, norm, parseNum, ymd, type DateRange } from '@/lib/format'
 import { expenseCategories, useShop } from '@/lib/shop'
 import { supabase } from '@/lib/supabase'
 import { run } from '@/lib/toast'
@@ -16,6 +16,7 @@ export default function ExpensesPage() {
   const canExpenses = useCan('expenses')
   const canStock = useCan('stock')
   const showCost = useCan('reports')
+  const canUndo = useCan('undo')
   const [range, setRange] = useState<DateRange>(() => makeRange('month'))
   const [tab, setTab] = useState<'expenses' | 'losses'>('expenses')
   const [q, setQ] = useState('')
@@ -42,6 +43,24 @@ export default function ExpensesPage() {
   const expList = useMemo(() => (expenses.data ?? []).filter((e) => !n || norm(`${e.title} ${e.category} ${e.note ?? ''}`).includes(n)), [expenses.data, n])
   const lossList = useMemo(() => (losses.data ?? []).filter((l) => !n || norm(`${l.product_name} ${l.reason} ${l.note ?? ''}`).includes(n)), [losses.data, n])
   const cur = tab === 'expenses' ? expenses : losses
+
+  // المسح = تراجع عن العملية: المصروف بيرجّع فلوسه للدرج، والعملية بتفضل في السجل متعلّم عليها "تم التراجع"
+  const delExpense = async (e: Expense) => {
+    const salary = e.category === 'رواتب' && e.note === 'من صندوق المرتبات'
+    const ok = await confirmDialog({
+      title: 'مسح المصروف',
+      message: salary
+        ? `هيتمسح "${e.title}" (${money(e.amount)} ج.م) وسحب المرتب بتاعه، والفلوس هترجع درج المرتبات.`
+        : `هيتمسح "${e.title}" (${money(e.amount)} ج.م) والفلوس هترجع الدرج.`,
+      ok: 'مسح',
+      danger: true,
+    })
+    if (ok) await run(() => rpc('undo', { p_op: e.op_id }), 'تم مسح المصروف')
+  }
+  const delLoss = async (l: Loss) => {
+    const ok = await confirmDialog({ title: 'مسح الهالك', message: `هيتمسح هالك "${l.product_name}" × ${l.qty}.`, ok: 'مسح', danger: true })
+    if (ok) await run(() => rpc('undo', { p_op: l.op_id }), 'تم مسح الهالك')
+  }
 
   return (
     <div>
@@ -108,6 +127,11 @@ export default function ExpensesPage() {
                   </div>
                 </div>
                 <Money v={e.amount} className="shrink-0 font-extrabold text-red" />
+                {canUndo && (
+                  <button type="button" aria-label="مسح المصروف" className="icon-btn -ml-1 shrink-0 text-ink-3 hover:text-red" onClick={() => delExpense(e)}>
+                    <Trash2 className="h-5 w-5" />
+                  </button>
+                )}
               </div>
             )}
           />
@@ -134,6 +158,12 @@ export default function ExpensesPage() {
                 </div>
               </div>
               {showCost && <Money v={l.qty * l.unit_cost} className="shrink-0 font-extrabold text-orange" />}
+              {/* الهالك اللي جاي من مرتجع أو استبدال بيتمسح مع المرتجع نفسه من الفاتورة */}
+              {canUndo && l.source === 'manual' && (
+                <button type="button" aria-label="مسح الهالك" className="icon-btn -ml-1 shrink-0 text-ink-3 hover:text-red" onClick={() => delLoss(l)}>
+                  <Trash2 className="h-5 w-5" />
+                </button>
+              )}
             </div>
           )}
         />

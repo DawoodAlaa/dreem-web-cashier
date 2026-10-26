@@ -28,7 +28,7 @@ export default function ShortagesPage() {
 
   const shareText = () => {
     const lines = [
-      ...open.map((x) => `• ${x.name}${x.note ? ` (${x.note})` : ''}`),
+      ...open.map((x) => `• ${x.name}${x.low ? ' — قرب يخلص' : ''}${x.note ? ` (${x.note})` : ''}`),
       ...autoOnly.map((a) => `• ${a.pv.p.name}${a.colors.length ? ` — ${a.colors.join('، ')}` : ''}`),
     ]
     return `النواقص (${lines.length}):\n${lines.join('\n')}`
@@ -169,7 +169,8 @@ function ShortageRow({ s, pv }: { s: Shortage; pv?: ProductView }) {
       <div className="min-w-0 flex-1">
         <div className={cx('font-bold', s.done && 'line-through')}>{s.name}</div>
         <div className="flex flex-wrap items-center gap-1.5 text-xs text-ink-3">
-          {s.note && <Tag color="orange">{s.note}</Tag>}
+          {!s.done && <Tag color={s.low ? 'orange' : 'red'}>{s.low ? 'قرب يخلص' : 'خلص'}</Tag>}
+          {s.note && <Tag color="gray">{s.note}</Tag>}
           {pv && track && (pv.allUncounted ? <Tag color="gray">لسه متجردش</Tag> : <Tag color={pv.stock <= 0 ? 'red' : 'green'}>الموجود {pv.stock}</Tag>)}
           {!s.product_id && <Tag color="purple">مش في المنتجات</Tag>}
           <span>
@@ -208,11 +209,12 @@ function AddShortage({ onClose }: { onClose: () => void }) {
   const [pv, setPv] = useState<ProductView | null>(null)
   const [name, setName] = useState('')
   const [note, setNote] = useState('')
+  const [low, setLow] = useState<'out' | 'low'>('out')
   const [picking, setPicking] = useState(false)
   const [busy, setBusy] = useState(false)
   const save = async () => {
     setBusy(true)
-    const ok = await run(() => addShortage(mode === 'product' ? (pv?.p.id ?? null) : null, mode === 'free' ? name : null, note.trim() || null), 'اتضاف للنواقص')
+    const ok = await run(() => addShortage(mode === 'product' ? (pv?.p.id ?? null) : null, mode === 'free' ? name : null, note.trim() || null, low === 'low'), 'اتضاف للنواقص')
     setBusy(false)
     if (ok) onClose()
   }
@@ -248,6 +250,16 @@ function AddShortage({ onClose }: { onClose: () => void }) {
             <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="مثلاً: شاحن آيفون أصلي" />
           </Field>
         )}
+        <Field label="الحالة">
+          <Segmented
+            value={low}
+            onChange={setLow}
+            options={[
+              { value: 'out', label: 'خلص' },
+              { value: 'low', label: 'قرب يخلص' },
+            ]}
+          />
+        </Field>
         <Field label="ملاحظة (اختياري)">
           <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="مثلاً: الزبون طلب 3، أو هات اللون الأسود" />
         </Field>

@@ -230,6 +230,7 @@ export interface Expense {
   note: string | null
   date: string
   voided: boolean
+  op_id: number
   created_at: string
 }
 
@@ -244,6 +245,7 @@ export interface Loss {
   note: string | null
   source: string
   voided: boolean
+  op_id: number
   created_at: string
 }
 
