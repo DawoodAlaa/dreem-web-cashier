@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { can, isOwner } from './auth'
+import { isTrackStock, useShop } from './shop'
 import type { Perm, Profile } from './types'
 
 export type PageId =
@@ -45,9 +46,13 @@ export const PAGES: { id: PageId; label: string; perms: Perm[] | 'owner' }[] = [
   { id: 'settings', label: 'الإعدادات', perms: ['settings'] },
 ]
 
+// الصفحات اللي بتختفي لما متابعة الكميات تتقفل
+const STOCK_PAGES: PageId[] = ['inventory', 'purchases']
+
 export function canOpen(page: PageId, profile: Profile | null): boolean {
   const def = PAGES.find((p) => p.id === page)
   if (!def || !profile) return false
+  if (STOCK_PAGES.includes(page) && !isTrackStock(useShop.getState().settings)) return false
   if (def.perms === 'owner') return isOwner(profile)
   return def.perms.some((p) => can(p, profile))
 }

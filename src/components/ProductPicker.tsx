@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { norm } from '@/lib/format'
-import { useShop } from '@/lib/shop'
+import { useShop, useTrackStock } from '@/lib/shop'
 import type { ProductView, Variant } from '@/lib/types'
 import { ProductImage } from './ProductForm'
 import { Modal, Money, SearchBox, Tag, cx } from './ui'
@@ -26,6 +26,7 @@ export function ProductPicker({
   onlySellable?: boolean
 }) {
   const views = useShop((s) => s.views)
+  const track = useTrackStock()
   const [q, setQ] = useState('')
   const [chosen, setChosen] = useState<ProductView | null>(null)
   const list = useMemo(() => {
@@ -66,7 +67,7 @@ export function ProductPicker({
                 }}
               >
                 <span className="font-bold">{v.name ?? 'عادي'}</span>
-                <span className="text-sm text-ink-3">{v.uncounted ? 'لسه متجردش' : `الكمية ${v.stock}`}</span>
+                {track && <span className="text-sm text-ink-3">{v.uncounted ? 'لسه متجردش' : `الكمية ${v.stock}`}</span>}
               </button>
             )
           })}
@@ -98,7 +99,7 @@ export function ProductPicker({
                           جملة <Money v={pv.p.cost_price} />
                         </span>
                       )}
-                      <span>{pv.allUncounted ? 'لسه متجردش' : `الكمية ${pv.stock}`}</span>
+                      {track && <span>{pv.allUncounted ? 'لسه متجردش' : `الكمية ${pv.stock}`}</span>}
                       {pv.hasVariants && <Tag color="gray">{pv.vs.length} ألوان</Tag>}
                     </div>
                   </div>

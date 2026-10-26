@@ -4,6 +4,7 @@ import { Layout } from './components/Layout'
 import { DialogHost, Loading, Toasts } from './components/ui'
 import { initAuth, useAuth } from './lib/auth'
 import { PAGES, canOpen, go, useNav, type PageId } from './lib/nav'
+import { useTrackStock } from './lib/shop'
 import { reloadApp, retryChunk, useUpdateAvailable } from './lib/updates'
 import { BootScreen, LinkShopPage, LoginPage, PendingPage } from './pages/Auth'
 import SalesPage from './pages/Sales'
@@ -48,6 +49,7 @@ const pages: Record<PageId, ComponentType> = {
 function Main() {
   const page = useNav((s) => s.page)
   const profile = useAuth((s) => s.profile)
+  useTrackStock()
   const allowed = canOpen(page, profile)
   useEffect(() => {
     if (!allowed) {

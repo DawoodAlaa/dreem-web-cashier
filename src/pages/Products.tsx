@@ -11,7 +11,7 @@ import { q as one, rpc } from '@/lib/api'
 import { useCan } from '@/lib/auth'
 import { offerView } from '@/lib/cart'
 import { EPS, dateTimeFmt, money, norm, parseInt0, parseNum } from '@/lib/format'
-import { splitCategories, useShop, vPrice } from '@/lib/shop'
+import { splitCategories, useShop, useTrackStock, vPrice } from '@/lib/shop'
 import { supabase } from '@/lib/supabase'
 import { run, toast } from '@/lib/toast'
 import type { Category, Offer, ProductView, UsedPurchase } from '@/lib/types'
@@ -75,6 +75,7 @@ export default function ProductsPage() {
   const canProducts = useCan('products')
   const canStock = useCan('stock')
   const canUsed = useCan('used')
+  const track = useTrackStock()
   const [cat, setCat] = useState(ALL)
   const [q, setQ] = useState('')
   const [low, setLow] = useState(false)
@@ -95,11 +96,11 @@ export default function ProductsPage() {
     const tokens = norm(q).split(/\s+/).filter(Boolean)
     return views.filter((v) => {
       if (cat !== ALL && v.p.category_id !== cat) return false
-      if (low && !v.isLow) return false
-      if (unc && !v.uncounted) return false
+      if (track && low && !v.isLow) return false
+      if (track && unc && !v.uncounted) return false
       return tokens.every((t) => v.key.includes(t))
     })
-  }, [views, cat, q, low, unc])
+  }, [views, cat, q, low, unc, track])
 
   const toggle = (id: number) =>
     setSel((s) => {
@@ -194,12 +195,16 @@ export default function ProductsPage() {
         {canProducts && <div className="text-xs text-ink-3">اضغط ضغطة طويلة على الصنف عشان تعدّله أو تحذفه</div>}
         <div className="flex flex-wrap gap-2">
           <SearchBox value={q} onChange={setQ} placeholder="بحث بالاسم أو IMEI" className="min-w-[200px] flex-1" />
-          <button type="button" className={cx('chip', low && 'chip-on')} onClick={() => setLow((x) => !x)}>
-            <AlertTriangle className="h-4 w-4" /> قربت تخلص ({lowCount})
-          </button>
-          <button type="button" className={cx('chip', unc && 'chip-on')} onClick={() => setUnc((x) => !x)}>
-            لسه متجردش ({uncCount})
-          </button>
+          {track && (
+            <>
+              <button type="button" className={cx('chip', low && 'chip-on')} onClick={() => setLow((x) => !x)}>
+                <AlertTriangle className="h-4 w-4" /> قربت تخلص ({lowCount})
+              </button>
+              <button type="button" className={cx('chip', unc && 'chip-on')} onClick={() => setUnc((x) => !x)}>
+                لسه متجردش ({uncCount})
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -292,6 +297,7 @@ function ProductRow({
   onToggle: () => void
 }) {
   const showCost = useCan('reports')
+  const track = useTrackStock()
   const icon = useShop((s) => s.categories.find((c) => c.id === pv.p.category_id)?.icon ?? 'box')
   const hasParts = useShop((s) => (s.parts.byParent.get(pv.p.id)?.length ?? 0) > 0)
   const isSplitCat = useShop((s) => splitCategories(s.settings, s.categories).includes(pv.p.category_id))
@@ -314,9 +320,9 @@ function ProductRow({
   const items: { label: string; icon: React.ReactNode; on: () => void; show: boolean; danger?: boolean }[] = [
     { label: 'تعديل', icon: <Pencil className="h-4 w-4" />, on: () => onAction({ k: 'edit', pv }), show: canProducts },
     { label: 'هالك', icon: <AlertTriangle className="h-4 w-4" />, on: () => onAction({ k: 'loss', pv }), show: canStock },
-    { label: 'المكونات (راس + وصلة)', icon: <Puzzle className="h-4 w-4" />, on: () => onAction({ k: 'parts', pv }), show: canProducts && (isSplitCat || hasParts) },
-    { label: 'فك', icon: <Split className="h-4 w-4" />, on: () => doSplit(false), show: canStock && hasParts },
-    { label: 'تجميع', icon: <Combine className="h-4 w-4" />, on: () => doSplit(true), show: canStock && hasParts },
+    { label: 'المكونات (راس + وصلة)', icon: <Puzzle className="h-4 w-4" />, on: () => onAction({ k: 'parts', pv }), show: track && canProducts && (isSplitCat || hasParts) },
+    { label: 'فك', icon: <Split className="h-4 w-4" />, on: () => doSplit(false), show: track && canStock && hasParts },
+    { label: 'تجميع', icon: <Combine className="h-4 w-4" />, on: () => doSplit(true), show: track && canStock && hasParts },
     { label: 'بيانات المستعمل', icon: <UserRound className="h-4 w-4" />, on: () => onAction({ k: 'usedInfo', pv }), show: p.is_used },
     { label: 'حذف', icon: <Trash2 className="h-4 w-4" />, on: del, show: canProducts, danger: true },
   ]
@@ -349,39 +355,37 @@ function ProductRow({
             )}
           </div>
           <div className={cx('relative flex shrink-0 items-center gap-1', selecting && 'hidden')}>
-            {canStock && (
+            {canStock && track && (
               <Button size="sm" variant="soft" className="h-9 px-2.5" icon={<PackagePlus className="h-4 w-4" />} onClick={() => onAction({ k: 'stock', pv })}>
                 كمية
               </Button>
             )}
             {items.some((i) => i.show) && (
-              <IconButton label="خيارات" onClick={() => setMenu((m) => !m)} className="h-9 w-9">
+              <IconButton label="خيارات" onClick={() => setMenu(true)} className="h-9 w-9">
                 <MoreVertical className="h-5 w-5" />
               </IconButton>
             )}
-            {menu && (
-              <>
-                <div className="fixed inset-0 z-30" onClick={() => setMenu(false)} />
-                <div className="anim-pop absolute left-0 top-10 z-40 w-52 rounded-card border border-line bg-white p-1.5 shadow-xl">
-                  {items
-                    .filter((i) => i.show)
-                    .map((i) => (
-                      <button
-                        key={i.label}
-                        type="button"
-                        className={cx('flex h-10 w-full items-center gap-2 rounded-btn px-2 text-sm font-bold', i.danger ? 'text-red hover:bg-red-light' : 'text-ink-2 hover:bg-bg')}
-                        onClick={() => {
-                          setMenu(false)
-                          i.on()
-                        }}
-                      >
-                        {i.icon}
-                        {i.label}
-                      </button>
-                    ))}
-                </div>
-              </>
-            )}
+            {/* الخيارات في شباك لوحده (من تحت على الموبايل)، عشان الصف اللي بعده ميغطيهاش */}
+            <Modal open={menu} onClose={() => setMenu(false)} size="sm" title={p.name}>
+              <div className="space-y-1">
+                {items
+                  .filter((i) => i.show)
+                  .map((i) => (
+                    <button
+                      key={i.label}
+                      type="button"
+                      className={cx('flex h-12 w-full items-center gap-3 rounded-btn px-3 text-[15px] font-bold [&_svg]:h-5 [&_svg]:w-5', i.danger ? 'text-red hover:bg-red-light' : 'text-ink-2 hover:bg-bg')}
+                      onClick={() => {
+                        setMenu(false)
+                        i.on()
+                      }}
+                    >
+                      {i.icon}
+                      {i.label}
+                    </button>
+                  ))}
+              </div>
+            </Modal>
           </div>
         </div>
         <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-sm">
@@ -397,21 +401,34 @@ function ProductRow({
             أقل <Money v={p.min_sell_price} className="font-bold text-orange" />
           </span>
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
-          {pv.allUncounted ? (
-            <Tag color="orange">لسه متجردش</Tag>
-          ) : (
-            <Tag color={pv.stock <= 0 ? 'red' : pv.isLow ? 'orange' : 'gray'}>الكمية {pv.stock}</Tag>
-          )}
-          <span className="text-ink-3">حد التنبيه {p.min_stock}</span>
-          {pv.hasVariants &&
-            pv.vs.map((v) => (
-              <Tag key={v.id} color={v.uncounted ? 'orange' : v.stock <= 0 ? 'red' : 'gray'}>
-                {v.name}: {v.uncounted ? '؟' : v.stock}
-                {vPrice(pv, v).own && ` • ${money(vPrice(pv, v).sell)} ج.م`}
-              </Tag>
-            ))}
-        </div>
+        {track ? (
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
+            {pv.allUncounted ? (
+              <Tag color="orange">لسه متجردش</Tag>
+            ) : (
+              <Tag color={pv.stock <= 0 ? 'red' : pv.isLow ? 'orange' : 'gray'}>الكمية {pv.stock}</Tag>
+            )}
+            <span className="text-ink-3">حد التنبيه {p.min_stock}</span>
+            {pv.hasVariants &&
+              pv.vs.map((v) => (
+                <Tag key={v.id} color={v.uncounted ? 'orange' : v.stock <= 0 ? 'red' : 'gray'}>
+                  {v.name}: {v.uncounted ? '؟' : v.stock}
+                  {vPrice(pv, v).own && ` • ${money(vPrice(pv, v).sell)} ج.م`}
+                </Tag>
+              ))}
+          </div>
+        ) : (
+          pv.hasVariants && (
+            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
+              {pv.vs.map((v) => (
+                <Tag key={v.id} color="gray">
+                  {v.name}
+                  {vPrice(pv, v).own && ` • ${money(vPrice(pv, v).sell)} ج.م`}
+                </Tag>
+              ))}
+            </div>
+          )
+        )}
       </div>
     </div>
   )
@@ -462,6 +479,7 @@ function AddStock({ pv, onClose }: { pv: ProductView; onClose: () => void }) {
 function QuickAdd({ defaultCategory, onClose }: { defaultCategory: number | null; onClose: () => void }) {
   const categories = useShop((s) => s.categories)
   const showCost = useCan('reports')
+  const track = useTrackStock()
   const [cat, setCat] = useState(defaultCategory ?? categories.find((c) => c.icon === 'case')?.id ?? categories[0]?.id ?? 0)
   const [cost, setCost] = useState('')
   const [sell, setSell] = useState('')
@@ -486,7 +504,7 @@ function QuickAdd({ defaultCategory, onClose }: { defaultCategory: number | null
             min_sell: parseNum(minSell) ?? sellN,
             min_stock: parseInt0(minStock) ?? 0,
             image_url: image,
-            uncounted,
+            uncounted: uncounted || !track,
             items,
           },
         }),
@@ -511,7 +529,7 @@ function QuickAdd({ defaultCategory, onClose }: { defaultCategory: number | null
       }
     >
       <div className="space-y-4">
-        <div className="text-sm text-ink-3">أكتر من منتج بنفس الأسعار (زي الجرابات). اكتب اسم كل منتج وكميته.</div>
+        <div className="text-sm text-ink-3">أكتر من منتج بنفس الأسعار (زي الجرابات). اكتب اسم كل منتج{track ? ' وكميته' : ''}.</div>
         <Field label="الصنف">
           <Select value={cat} onChange={(e) => setCat(Number(e.target.value))}>
             {categories.map((c) => (
@@ -521,7 +539,7 @@ function QuickAdd({ defaultCategory, onClose }: { defaultCategory: number | null
             ))}
           </Select>
         </Field>
-        <div className={cx('grid gap-3', showCost ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3')}>
+        <div className={cx('grid gap-3', showCost && track ? 'grid-cols-2 sm:grid-cols-4' : showCost || track ? 'grid-cols-3' : 'grid-cols-2')}>
           {showCost && (
             <Field label="سعر الجملة">
               <NumInput value={cost} onChange={(e) => setCost(e.target.value)} />
@@ -533,14 +551,16 @@ function QuickAdd({ defaultCategory, onClose }: { defaultCategory: number | null
           <Field label="أقل سعر">
             <NumInput value={minSell} placeholder={sell} onChange={(e) => setMinSell(e.target.value)} />
           </Field>
-          <Field label="حد التنبيه">
-            <NumInput decimal={false} value={minStock} onChange={(e) => setMinStock(e.target.value)} />
-          </Field>
+          {track && (
+            <Field label="حد التنبيه">
+              <NumInput decimal={false} value={minStock} onChange={(e) => setMinStock(e.target.value)} />
+            </Field>
+          )}
         </div>
         <Field label="صورة (للكل)">
           <ImagePicker value={image} onChange={setImage} />
         </Field>
-        <Checkbox checked={uncounted} onChange={setUncounted} label="الكمية هتتجرد بعدين" />
+        {track && <Checkbox checked={uncounted} onChange={setUncounted} label="الكمية هتتجرد بعدين" />}
         <div className="space-y-2">
           {rows.map((r, i) => (
             <div key={i} className="flex gap-2">
@@ -556,7 +576,7 @@ function QuickAdd({ defaultCategory, onClose }: { defaultCategory: number | null
                   }
                 }}
               />
-              {!uncounted && (
+              {!uncounted && track && (
                 <NumInput decimal={false} className="w-20" value={r.qty} onChange={(e) => setRows((x) => x.map((y, j) => (j === i ? { ...y, qty: e.target.value } : y)))} />
               )}
               <IconButton label="حذف" className="text-red" onClick={() => setRows((x) => (x.length > 1 ? x.filter((_, j) => j !== i) : x))}>

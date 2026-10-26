@@ -10,7 +10,7 @@ import { useCan } from '@/lib/auth'
 import { availableFor, cart, checkStock, lineFrom, offerToLines, offerView, totals, useCart, type OfferView } from '@/lib/cart'
 import { EPS, dateTimeFmt, money, norm, parseInt0, parseNum, roundMoney, variantLabel } from '@/lib/format'
 import { useNav } from '@/lib/nav'
-import { assemblable, canSellVariant, extraAvailable, firstSellable, priceRange, splitSource, useShop, vPrice } from '@/lib/shop'
+import { assemblable, canSellVariant, extraAvailable, firstSellable, priceRange, splitSource, useShop, useTrackStock, vPrice } from '@/lib/shop'
 import { supabase } from '@/lib/supabase'
 import { run, toast, toastError } from '@/lib/toast'
 import { addShortage, useShortages } from '@/lib/shortages'
@@ -185,7 +185,10 @@ export default function SalesPage() {
 /** حالة المنتج في الكارت والصف: السعر، خلص ولا لأ، ونص الكمية */
 function useCardInfo(pv: ProductView) {
   const icon = useShop((s) => s.categories.find((c) => c.id === pv.p.category_id)?.icon ?? 'box')
+  const track = useTrackStock()
   const range = priceRange(pv)
+  // متابعة الكميات مقفولة: مفيش كمية ولا "خلص"
+  if (!track) return { icon, range, out: false, qty: null as React.ReactNode }
   const split = splitSource(pv)
   const asm = !split && assemblable(pv)
   const out = pv.outOfStock && !split && !asm
@@ -286,10 +289,12 @@ const SaleRow = memo(function SaleRow({ pv, onPick }: { pv: ProductView; onPick:
             {pv.p.is_used && <Tag color="purple" className="ml-1 align-middle">مستعمل</Tag>}
             {pv.p.name}
           </span>
-          <span className="mt-0.5 block truncate text-xs font-bold">
-            {qty}
-            {pv.vs.length > 1 && <span className="text-ink-3"> • {pv.vs.length} أنواع</span>}
-          </span>
+          {(qty || pv.vs.length > 1) && (
+            <span className="mt-0.5 block truncate text-xs font-bold">
+              {qty}
+              {pv.vs.length > 1 && <span className="text-ink-3">{qty ? ' • ' : ''}{pv.vs.length} أنواع</span>}
+            </span>
+          )}
         </span>
         <span className="shrink-0 text-left">
           <PriceText range={range} />
@@ -344,6 +349,7 @@ function OfferCard({ o }: { o: OfferView }) {
 
 function AddToCart({ pv: initial, onClose, onSellNow }: { pv: ProductView; onClose: () => void; onSellNow: () => void }) {
   const cartEmpty = useCart((s) => s.lines.length === 0)
+  const track = useTrackStock()
   const pv = useShop((s) => s.byId.get(initial.p.id)) ?? initial
   const byId = useShop((s) => s.byId)
   const parts = useShop((s) => s.parts)
@@ -427,7 +433,7 @@ function AddToCart({ pv: initial, onClose, onSellNow }: { pv: ProductView; onClo
               </Tag>
               {p.is_used && <Tag color="purple">مستعمل</Tag>}
             </div>
-            <div className="text-sm font-bold text-ink-2">{availText}</div>
+            {track && <div className="text-sm font-bold text-ink-2">{availText}</div>}
             {p.imei && (
               <div className="text-xs text-ink-3" dir="ltr">
                 IMEI: {p.imei}
@@ -456,8 +462,8 @@ function AddToCart({ pv: initial, onClose, onSellNow }: { pv: ProductView; onClo
                   >
                     {x.name ?? 'عادي'}
                     <span className={cx('text-xs', x.id === v.id ? 'text-white/80' : 'text-ink-3')}>
-                      {x.uncounted ? '؟' : x.stock}
-                      {vPrice(pv, x).own && ` • ${money(vPrice(pv, x).sell)}`}
+                      {track && (x.uncounted ? '؟' : x.stock)}
+                      {vPrice(pv, x).own && `${track ? ' • ' : ''}${money(vPrice(pv, x).sell)}`}
                     </span>
                   </button>
                 )
@@ -508,7 +514,8 @@ function AddToCart({ pv: initial, onClose, onSellNow }: { pv: ProductView; onClo
 
 /** جرد سريع للكمية + إضافة للنواقص (جوه نافذة المنتج) */
 function ProductTools({ pv, v, out }: { pv: ProductView; v: Variant; out: boolean }) {
-  const canStock = useCan('stock')
+  const track = useTrackStock()
+  const canStock = useCan('stock') && track
   const { ready, missing, list } = useShortages()
   const inList = list.some((x) => !x.done && x.product_id === pv.p.id)
   const [count, setCount] = useState('')
@@ -572,6 +579,9 @@ function ProductTools({ pv, v, out }: { pv: ProductView; v: Variant; out: boolea
   )
 
   // الجرد والنواقص مستخبيين تحت زرار عشان الشباك يبقى للبيع بس. لو المنتج خلص، زرار النواقص بيبان على طول
+  // من غير جرد: زرار النواقص بس، باين على طول
+  if (!canStock) return <div className="mt-4 border-t border-line-soft pt-3">{shortageEl}</div>
+
   return (
     <div className="mt-4 space-y-2 border-t border-line-soft pt-3">
       {out && shortageEl}

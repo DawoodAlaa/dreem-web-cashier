@@ -3,7 +3,7 @@ import { useMemo } from 'react'
 import { create } from 'zustand'
 import { rpc } from './api'
 import { onResync } from './realtime'
-import { assemblable, splitSource, useShop } from './shop'
+import { assemblable, splitSource, useShop, isTrackStock } from './shop'
 import { supabase } from './supabase'
 import type { ProductView } from './types'
 
@@ -93,8 +93,10 @@ export async function clearDoneShortages() {
 export function useOutOfStock(): { pv: ProductView; colors: string[] }[] {
   const views = useShop((s) => s.views)
   const parts = useShop((s) => s.parts)
+  const track = useShop((s) => isTrackStock(s.settings))
   return useMemo(() => {
     const out: { pv: ProductView; colors: string[] }[] = []
+    if (!track) return out // متابعة الكميات مقفولة: مفيش حاجة "بتخلص" لوحدها
     for (const pv of views) {
       if (pv.p.is_used) continue
       const empty = pv.vs.filter((v) => !v.uncounted && v.stock <= 0)
@@ -105,7 +107,7 @@ export function useOutOfStock(): { pv: ProductView; colors: string[] }[] {
     return out.sort((a, b) => a.pv.p.name.localeCompare(b.pv.p.name, 'ar'))
     // parts بيأثر على الفك والتجميع
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [views, parts])
+  }, [views, parts, track])
 }
 
 export function useShortageCount() {

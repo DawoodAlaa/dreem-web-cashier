@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { rpc } from '@/lib/api'
 import { useCan } from '@/lib/auth'
 import { money, parseInt0, parseNum, variantLabel } from '@/lib/format'
-import { LOSS_REASONS, vPrice } from '@/lib/shop'
+import { LOSS_REASONS, useTrackStock, vPrice } from '@/lib/shop'
 import { run } from '@/lib/toast'
 import type { ProductView, Variant } from '@/lib/types'
 import { ProductPicker } from './ProductPicker'
@@ -11,6 +11,7 @@ import { Button, Field, Input, Modal, NumInput, Segmented, Select, TextArea } fr
 /** تسجيل هالك: من المخزون (منتج ولون وكمية) أو حاجة برة المخزون */
 export function LossForm({ open, onClose, initial }: { open: boolean; onClose: () => void; initial?: { pv: ProductView; v: Variant } | null }) {
   const showCost = useCan('reports')
+  const track = useTrackStock()
   const [src, setSrc] = useState<'stock' | 'free'>('stock')
   const [item, setItem] = useState<{ pv: ProductView; v: Variant } | null>(initial ?? null)
   const [picking, setPicking] = useState(false)
@@ -58,7 +59,7 @@ export function LossForm({ open, onClose, initial }: { open: boolean; onClose: (
           value={src}
           onChange={setSrc}
           options={[
-            { value: 'stock', label: 'من المخزون' },
+            { value: 'stock', label: track ? 'من المخزون' : 'من المنتجات' },
             { value: 'free', label: 'حاجة برة المخزون' },
           ]}
         />
@@ -68,7 +69,7 @@ export function LossForm({ open, onClose, initial }: { open: boolean; onClose: (
               {item ? (
                 <span className="truncate">
                   {variantLabel(item.pv.p.name, item.v.name)}
-                  <span className="mr-2 text-xs text-ink-3">{item.v.uncounted ? 'لسه متجردش' : `الكمية ${item.v.stock}`}</span>
+                  {track && <span className="mr-2 text-xs text-ink-3">{item.v.uncounted ? 'لسه متجردش' : `الكمية ${item.v.stock}`}</span>}
                 </span>
               ) : (
                 <span className="text-ink-3">اختار المنتج</span>

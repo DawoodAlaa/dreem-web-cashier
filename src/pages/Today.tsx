@@ -8,7 +8,7 @@ import { int, iso, makeRange, money, timeFmt } from '@/lib/format'
 import { canOpen, go, type PageId } from '@/lib/nav'
 import { onStatus } from '@/lib/realtime'
 import { useShortageCount } from '@/lib/shortages'
-import { useShop } from '@/lib/shop'
+import { useShop, useTrackStock } from '@/lib/shop'
 import { supabase } from '@/lib/supabase'
 import type { ActivityLog, ProfitReport } from '@/lib/types'
 import { useLive } from '@/lib/useLive'
@@ -127,6 +127,7 @@ export default function TodayPage() {
     return { low, out }
   }, [views])
   const shortages = useShortageCount()
+  const track = useTrackStock()
   const open = (p: PageId) => canOpen(p, profile) && go(p)
 
   return (
@@ -193,9 +194,9 @@ export default function TodayPage() {
       )}
 
       {/* المخزون */}
-      <div className="grid grid-cols-3 gap-2">
-        <MiniTile icon={<PackageX className="h-5 w-5" />} label="خلص" n={stock.out} color="red" onClick={() => open('products')} />
-        <MiniTile icon={<AlertTriangle className="h-5 w-5" />} label="قرب يخلص" n={stock.low} color="orange" onClick={() => open('products')} />
+      <div className={cx('grid gap-2', track ? 'grid-cols-3' : 'grid-cols-1')}>
+        {track && <MiniTile icon={<PackageX className="h-5 w-5" />} label="خلص" n={stock.out} color="red" onClick={() => open('products')} />}
+        {track && <MiniTile icon={<AlertTriangle className="h-5 w-5" />} label="قرب يخلص" n={stock.low} color="orange" onClick={() => open('products')} />}
         <MiniTile icon={<ListTodo className="h-5 w-5" />} label="النواقص" n={shortages} color="purple" onClick={() => open('shortages')} />
       </div>
 

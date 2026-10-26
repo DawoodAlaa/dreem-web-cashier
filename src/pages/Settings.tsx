@@ -2,11 +2,11 @@ import { Pencil, Plus, Trash2, X } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { CategoryForm } from '@/components/CategoryForm'
 import { CategoryIcon } from '@/components/icons'
-import { Button, Checkbox, Field, Input, NumInput, PageHeader } from '@/components/ui'
+import { Button, Checkbox, Field, Input, NumInput, PageHeader, Segmented, confirmDialog } from '@/components/ui'
 import { AppError, rpc } from '@/lib/api'
 import { useCan } from '@/lib/auth'
 import { parseInt0 } from '@/lib/format'
-import { expenseCategories, splitCategories, splitHeadRatio, useShop } from '@/lib/shop'
+import { expenseCategories, splitCategories, splitHeadRatio, useShop, useTrackStock } from '@/lib/shop'
 import { run, toast } from '@/lib/toast'
 import type { Category } from '@/lib/types'
 
@@ -24,16 +24,49 @@ function Section({ title, sub, children }: { title: string; sub?: string; childr
 
 export default function SettingsPage() {
   const canProducts = useCan('products')
+  const track = useTrackStock()
   return (
     <div>
       <PageHeader title="الإعدادات" />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <ShopInfo />
         {canProducts && <Categories />}
+        <StockSettings />
         <ExpenseCats />
-        <ChargerSettings />
+        {track && <ChargerSettings />}
       </div>
     </div>
+  )
+}
+
+function StockSettings() {
+  const track = useTrackStock()
+  const [busy, setBusy] = useState(false)
+  const change = async (on: boolean) => {
+    if (on === track) return
+    const ok = await confirmDialog(
+      on
+        ? { title: 'تشغيل متابعة الكميات', message: 'الجرد والمشتريات هيرجعوا، وكل المنتجات هتبقى "لسه متجردش" لحد ما تعدّها من صفحة الجرد.', ok: 'تشغيل' }
+        : { title: 'إيقاف متابعة الكميات', message: 'الكميات هتتشال من كل المنتجات، والبيع مش هيتقيد بالكمية. الجرد والمشتريات هيختفوا. الفواتير والهالك هيفضلوا يسجلوا عدد القطع عادي.', ok: 'إيقاف', danger: true },
+    )
+    if (!ok) return
+    setBusy(true)
+    await run(() => rpc('set_track_stock', { p_on: on }), on ? 'متابعة الكميات اشتغلت' : 'متابعة الكميات اتقفلت')
+    setBusy(false)
+  }
+  return (
+    <Section title="متابعة الكميات" sub="لو مش محتاج تعرف الموجود من كل منتج، اقفلها: البيع هيبقى من غير كميات، وعدد اللي اتباع والهالك بيتسجل عادي">
+      <div className={busy ? 'pointer-events-none opacity-60' : undefined}>
+        <Segmented
+          value={track ? 'on' : 'off'}
+          onChange={(v) => void change(v === 'on')}
+          options={[
+            { value: 'on', label: 'شغالة' },
+            { value: 'off', label: 'مقفولة' },
+          ]}
+        />
+      </div>
+    </Section>
   )
 }
 

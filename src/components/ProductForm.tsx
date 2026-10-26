@@ -4,7 +4,7 @@ import { rpc } from '@/lib/api'
 import { useCan } from '@/lib/auth'
 import { EPS, money, parseInt0, parseNum } from '@/lib/format'
 import { uploadProductImage } from '@/lib/images'
-import { useShop } from '@/lib/shop'
+import { useShop, useTrackStock } from '@/lib/shop'
 import { run, toastError } from '@/lib/toast'
 import type { ProductView } from '@/lib/types'
 import { Button, Checkbox, Field, Input, Modal, NumInput, Select, Spinner, TextArea, cx } from './ui'
@@ -104,6 +104,7 @@ export function ProductForm({
   const [sell, setSell] = useState(p ? money(p.sell_price).replace(/,/g, '') : '')
   const [minSell, setMinSell] = useState(p ? money(p.min_sell_price).replace(/,/g, '') : '')
   const [minStock, setMinStock] = useState(p ? String(p.min_stock) : '1')
+  const track = useTrackStock()
   const [imei, setImei] = useState(p?.imei ?? '')
   const [notes, setNotes] = useState(p?.notes ?? '')
   const [uncounted, setUncounted] = useState(product ? product.allUncounted : false)
@@ -156,8 +157,9 @@ export function ProductForm({
       notes: notes.trim() || null,
       imei: imei.trim() || null,
       is_used: p?.is_used ?? false,
-      uncounted,
-      variants: list.map((r) => ({ id: r.id, name: r.name.trim() || null, stock: parseInt0(r.stock) ?? 0, uncounted: r.id ? r.uncounted : uncounted, ...rowPrice(r) })),
+      // متابعة الكميات مقفولة: كل الأنواع من غير كمية (والسيرفر بيضمن ده كمان)
+      uncounted: uncounted || !track,
+      variants: list.map((r) => ({ id: r.id, name: r.name.trim() || null, stock: track ? (parseInt0(r.stock) ?? 0) : 0, uncounted: !track || (r.id ? r.uncounted : uncounted), ...rowPrice(r) })),
     }
     setBusy(true)
     let id = p?.id ?? 0
@@ -221,10 +223,12 @@ export function ProductForm({
           </Field>
         </div>
         {minErr && <div className="-mt-2 text-xs font-bold text-red">{minErr}</div>}
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="حد التنبيه" hint="يظهر في الجرس لما الكمية توصله">
-            <NumInput decimal={false} value={minStock} onChange={(e) => setMinStock(e.target.value)} />
-          </Field>
+        <div className={cx('grid gap-3', track ? 'grid-cols-2' : 'grid-cols-1')}>
+          {track && (
+            <Field label="حد التنبيه" hint="يظهر في الجرس لما الكمية توصله">
+              <NumInput decimal={false} value={minStock} onChange={(e) => setMinStock(e.target.value)} />
+            </Field>
+          )}
           <Field label="IMEI (اختياري)">
             <Input dir="ltr" className="text-right" value={imei} onChange={(e) => setImei(e.target.value)} />
           </Field>
@@ -233,7 +237,7 @@ export function ProductForm({
         <div className="rounded-card border border-line p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <Checkbox checked={colors} onChange={setColors} label="المنتج ليه ألوان / أنواع" />
-            {!p && <Checkbox checked={uncounted} onChange={setUncounted} label="الكمية هتتجرد بعدين" />}
+            {!p && track && <Checkbox checked={uncounted} onChange={setUncounted} label="الكمية هتتجرد بعدين" />}
           </div>
           {colors ? (
             <div className="mt-2 space-y-2">
@@ -241,7 +245,7 @@ export function ProductForm({
                 <div key={i} className="rounded-btn bg-bg p-2">
                 <div className="flex items-center gap-2">
                   <Input className="flex-1" placeholder="النوع أو اللون (مثلاً أسود أو مستورد)" value={r.name} onChange={(e) => setRow(i, { name: e.target.value })} />
-                  {r.uncounted || (!r.id && uncounted) ? (
+                  {!track ? null : r.uncounted || (!r.id && uncounted) ? (
                     <span className="w-24 shrink-0 text-center text-xs font-bold text-orange">لسه متجردش</span>
                   ) : (
                     <NumInput decimal={false} className="w-24 shrink-0" placeholder="الكمية" value={r.stock} onChange={(e) => setRow(i, { stock: e.target.value })} />
@@ -269,7 +273,7 @@ export function ProductForm({
                 نوع تاني
               </Button>
             </div>
-          ) : (
+          ) : !track ? null : (
             <div className="mt-2">
               {rows[0].uncounted || (!rows[0].id && uncounted) ? (
                 <div className="text-sm font-bold text-orange">الكمية: لسه متجردش (هتتحدد في الجرد)</div>

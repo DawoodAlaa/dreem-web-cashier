@@ -31,7 +31,7 @@ import { int } from '@/lib/format'
 import { PAGES, canOpen, go, pageLabel, useNav, type PageId } from '@/lib/nav'
 import { onStatus } from '@/lib/realtime'
 import { useShortageCount } from '@/lib/shortages'
-import { useShop } from '@/lib/shop'
+import { useShop, useTrackStock } from '@/lib/shop'
 import { run } from '@/lib/toast'
 import { Button, Field, IconButton, Input, Modal, Tag, cx } from './ui'
 
@@ -58,6 +58,7 @@ const ICONS: Record<PageId, LucideIcon> = {
 function NavList({ onPick }: { onPick?: () => void }) {
   const profile = useAuth((s) => s.profile)
   const page = useNav((s) => s.page)
+  useTrackStock() // الصفحات بتتغير لما متابعة الكميات تتقفل أو تتفتح
   const items = PAGES.filter((p) => canOpen(p.id, profile))
   const shortages = useShortageCount()
   return (
@@ -128,9 +129,11 @@ function useOnline() {
 // ───────── جرس المخزون ─────────
 
 function LowStockBell() {
+  const track = useTrackStock()
   const views = useShop((s) => s.views)
   const low = useMemo(() => views.filter((v) => v.isLow && !v.p.is_used).sort((a, b) => a.stock - b.stock), [views])
   const [open, setOpen] = useState(false)
+  if (!track) return null
   return (
     <>
       <IconButton label="تنبيهات المخزون" onClick={() => setOpen(true)} className="relative">
@@ -330,6 +333,7 @@ function BottomNav({ onMore }: { onMore: () => void }) {
   const page = useNav((s) => s.page)
   const shortages = useShortageCount()
   const typing = useTyping()
+  useTrackStock()
   const tabs = TABS.filter((id) => canOpen(id, profile)).slice(0, 4)
   const inMore = !tabs.includes(page)
   if (typing) return null

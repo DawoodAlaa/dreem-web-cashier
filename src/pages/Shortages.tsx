@@ -6,7 +6,7 @@ import { Button, Empty, Field, Input, Modal, PageHeader, SearchBox, Segmented, T
 import { isOwner, useAuth } from '@/lib/auth'
 import { dateTimeFmt, norm } from '@/lib/format'
 import { addShortage, clearDoneShortages, deleteShortage, setShortageDone, useOutOfStock, useShortages, type Shortage } from '@/lib/shortages'
-import { useShop } from '@/lib/shop'
+import { useShop, useTrackStock } from '@/lib/shop'
 import { run, toast } from '@/lib/toast'
 import type { ProductView } from '@/lib/types'
 
@@ -157,6 +157,7 @@ export default function ShortagesPage() {
 }
 
 function ShortageRow({ s, pv }: { s: Shortage; pv?: ProductView }) {
+  const track = useTrackStock()
   const [busy, setBusy] = useState(false)
   const act = async (fn: () => Promise<unknown>) => {
     setBusy(true)
@@ -164,25 +165,12 @@ function ShortageRow({ s, pv }: { s: Shortage; pv?: ProductView }) {
     setBusy(false)
   }
   return (
-    <div className={cx('card flex items-center gap-3 p-3', s.done && 'opacity-70')}>
-      <button
-        type="button"
-        aria-label={s.done ? 'رجّعها للقايمة' : 'اتجابت'}
-        title={s.done ? 'رجّعها للقايمة' : 'اتجابت'}
-        disabled={busy}
-        onClick={() => act(() => setShortageDone(s.id, !s.done))}
-        className={cx(
-          'flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
-          s.done ? 'border-green bg-green text-white' : 'border-line text-transparent hover:border-green hover:text-green',
-        )}
-      >
-        {s.done ? <Check className="h-5 w-5" /> : <Check className="h-5 w-5" />}
-      </button>
+    <div className={cx('card flex items-center gap-2 p-3', s.done && 'opacity-70')}>
       <div className="min-w-0 flex-1">
         <div className={cx('font-bold', s.done && 'line-through')}>{s.name}</div>
         <div className="flex flex-wrap items-center gap-1.5 text-xs text-ink-3">
           {s.note && <Tag color="orange">{s.note}</Tag>}
-          {pv && (pv.allUncounted ? <Tag color="gray">لسه متجردش</Tag> : <Tag color={pv.stock <= 0 ? 'red' : 'green'}>الموجود {pv.stock}</Tag>)}
+          {pv && track && (pv.allUncounted ? <Tag color="gray">لسه متجردش</Tag> : <Tag color={pv.stock <= 0 ? 'red' : 'green'}>الموجود {pv.stock}</Tag>)}
           {!s.product_id && <Tag color="purple">مش في المنتجات</Tag>}
           <span>
             {s.user_name ? `${s.user_name} • ` : ''}
@@ -190,11 +178,16 @@ function ShortageRow({ s, pv }: { s: Shortage; pv?: ProductView }) {
           </span>
         </div>
       </div>
+      {/* اتجاب / رجّعها: زرار واضح بكلمة */}
       {s.done ? (
-        <button type="button" className="icon-btn" aria-label="رجّعها" disabled={busy} onClick={() => act(() => setShortageDone(s.id, false))}>
-          <RotateCcw className="h-5 w-5" />
-        </button>
-      ) : null}
+        <Button size="sm" variant="outline" className="h-10 shrink-0 px-3" icon={<RotateCcw className="h-4 w-4" />} disabled={busy} onClick={() => act(() => setShortageDone(s.id, false))}>
+          رجّعها
+        </Button>
+      ) : (
+        <Button size="sm" variant="green" className="h-10 shrink-0 px-3" icon={<Check className="h-4 w-4" />} disabled={busy} onClick={() => act(() => setShortageDone(s.id, true))}>
+          اتجاب
+        </Button>
+      )}
       <button
         type="button"
         className="icon-btn text-ink-3 hover:text-red"

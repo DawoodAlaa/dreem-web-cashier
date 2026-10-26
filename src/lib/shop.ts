@@ -252,6 +252,10 @@ export const reloadCatalog = () => loadCatalog()
 
 export const canSellVariant = (v: Variant) => v.uncounted || v.stock > 0
 
+/** متابعة الكميات شغالة في المحل؟ (الإعدادات ← متابعة الكميات). لما تتقفل الكميات والجرد والمشتريات بيختفوا */
+export const isTrackStock = (settings: Record<string, string>) => settings.track_stock !== '0'
+export const useTrackStock = () => useShop((s) => isTrackStock(s.settings))
+
 /** سعر النوع الفعلي: سعره لو ليه سعر، غير كده سعر المنتج */
 export function vPrice(pv: ProductView, v: Variant) {
   return {
