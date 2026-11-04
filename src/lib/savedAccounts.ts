@@ -3,6 +3,7 @@
 
 const KEY = 'cd.accounts'
 const DEVICE_KEY = 'cd.device'
+const SHARED_KEY = 'cd.shared'
 
 export interface SavedAccount {
   username: string
@@ -76,7 +77,7 @@ export function saveAccount(username: string, password: string | null, extra: { 
     username: u,
     name: extra.name ?? old?.name,
     shopName: extra.shopName ?? old?.shopName,
-    secret: password ? encode(password) : undefined,
+    secret: password && !isShared() ? encode(password) : undefined,
     savedAt: Date.now(),
   })
   write(list)
@@ -105,6 +106,24 @@ export function updateSavedPassword(username: string, password: string) {
 
 export function removeAccount(username: string) {
   write(read().filter((a) => a.username !== username.trim().toLowerCase()))
+}
+
+function isShared() {
+  try {
+    return localStorage.getItem(SHARED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+/** الجهاز بقى مشترك بين أكتر من مستخدم: مفيش حساب يفتح بضغطة من غير باسورد */
+export function markDeviceShared() {
+  try {
+    localStorage.setItem(SHARED_KEY, '1')
+  } catch {
+    /* ignore */
+  }
+  write(read().map((a) => ({ ...a, secret: undefined })))
 }
 
 export function accountPassword(a: SavedAccount): string | null {

@@ -1,4 +1,5 @@
 import {
+  ArrowLeftRight,
   BarChart3,
   Bell,
   CloudUpload,
@@ -33,6 +34,7 @@ import { onStatus } from '@/lib/realtime'
 import { useShortageCount } from '@/lib/shortages'
 import { useShop, useTrackStock } from '@/lib/shop'
 import { run } from '@/lib/toast'
+import { SwitchUser } from './SwitchUser'
 import { Button, Field, IconButton, Input, Modal, Tag, cx } from './ui'
 
 const ICONS: Record<PageId, LucideIcon> = {
@@ -228,6 +230,16 @@ function UserMenu({ compact }: { compact?: boolean }) {
             }}
           >
             <KeyRound className="h-4 w-4" /> تغيير الباسورد
+          </button>
+          <button
+            type="button"
+            className="flex h-10 w-full items-center gap-2 rounded-btn px-2 text-sm font-bold text-ink-2 hover:bg-bg"
+            onClick={() => {
+              setOpen(false)
+              useNav.setState({ switchOpen: true })
+            }}
+          >
+            <ArrowLeftRight className="h-4 w-4" /> تبديل المستخدم
           </button>
           <button
             type="button"
@@ -487,7 +499,10 @@ export function Layout({ children }: { children: ReactNode }) {
             <div className="flex-1 overflow-y-auto p-3">
               <NavList onPick={() => setMenu(false)} />
             </div>
-            <div className="border-t border-line-soft p-3">
+            <div className="space-y-2 border-t border-line-soft p-3">
+              <Button variant="soft" block icon={<ArrowLeftRight className="h-5 w-5" />} onClick={() => useNav.setState({ menuOpen: false, switchOpen: true })}>
+                تبديل المستخدم
+              </Button>
               <Button variant="danger-soft" block icon={<LogOut className="h-5 w-5" />} onClick={() => void signOut()}>
                 تسجيل الخروج
               </Button>
@@ -498,6 +513,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
       <main className="mx-auto w-full max-w-[1600px] px-3 pb-[calc(var(--bnav)+1rem)] pt-4 lg:px-6 lg:py-6">{children}</main>
       <BottomNav onMore={() => setMenu(true)} />
+      <SwitchUser />
     </div>
   )
 }

@@ -72,10 +72,11 @@ interface NavState {
   page: PageId
   arg: string | null // مثلاً رقم الفاتورة أو العميل المفتوح
   menuOpen: boolean
+  switchOpen: boolean // شباك تبديل المستخدم
   salesQuery: string | null // بحث جاي من شريط البحث السريع
 }
 
-export const useNav = create<NavState>(() => ({ ...fromHash(), menuOpen: false, salesQuery: null }))
+export const useNav = create<NavState>(() => ({ ...fromHash(), menuOpen: false, switchOpen: false, salesQuery: null }))
 
 export function go(page: PageId, arg: string | null = null) {
   const h = `#/${page}${arg != null ? '/' + encodeURIComponent(arg) : ''}`

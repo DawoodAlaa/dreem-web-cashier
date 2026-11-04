@@ -2,7 +2,7 @@ import type { RealtimeChannel, Session } from '@supabase/supabase-js'
 import { create } from 'zustand'
 import { AppError, errMsg, q, rpc } from './api'
 import { startRealtime, stopRealtime } from './realtime'
-import { removeAccount, saveAccount, setLastUsername, touchAccount, updateSavedPassword } from './savedAccounts'
+import { markDeviceShared, removeAccount, saveAccount, setLastUsername, touchAccount, updateSavedPassword } from './savedAccounts'
 import { startShop, stopShop } from './shop'
 import { startShortages, stopShortages } from './shortages'
 import { setRemember, supabase, usernameToEmail } from './supabase'
@@ -144,6 +144,7 @@ async function onSession(session: Session | null) {
   const uid = session?.user.id ?? null
   useAuth.setState({ session })
   if (uid === currentUid) return
+  const switching = !!uid && !!currentUid
   currentUid = uid
   if (!uid) {
     if (profileChannel) void supabase.removeChannel(profileChannel)
@@ -155,6 +156,8 @@ async function onSession(session: Session | null) {
   watchProfile(uid)
   if (registering) return
   useAuth.setState({ status: 'loading' })
+  // تبديل مستخدم: نبدأ من الأول عشان بيانات اللي قبله وصلاحياته متفضلش في الذاكرة
+  if (switching) await stopApp()
   await refreshProfile()
 }
 
@@ -201,6 +204,15 @@ export async function signIn(username: string, password: string, opts: LoginOpts
   const { error } = await supabase.auth.signInWithPassword({ email: usernameToEmail(username), password }).catch((e) => ({ error: e }))
   if (error) throw new AppError(errMsg(error))
   rememberCreds(username, password, opts)
+}
+
+/** تبديل المستخدم على نفس الجهاز. لو الباسورد غلط الجلسة الحالية بتفضل زي ما هي */
+export async function switchUser(username: string, password: string) {
+  if (!password) throw new AppError('اكتب الباسورد')
+  const { error } = await supabase.auth.signInWithPassword({ email: usernameToEmail(username), password }).catch((e) => ({ error: e }))
+  if (error) throw new AppError(errMsg(error))
+  setLastUsername(username)
+  markDeviceShared()
 }
 
 async function signUpOrIn(username: string, password: string) {
