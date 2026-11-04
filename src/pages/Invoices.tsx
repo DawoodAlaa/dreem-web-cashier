@@ -1,7 +1,7 @@
-import { ArrowRight, FileText, Plus, RotateCcw, Repeat, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { ArrowRight, Ban, FileText, Plus, RotateCcw, Repeat, Trash2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { ProductPicker } from '@/components/ProductPicker'
-import { Button, Checkbox, Chips, Empty, ErrorBox, Field, IconButton, KV, Loading, Modal, Money, NumInput, PageHeader, RangeFilter, useRange, SearchBox, Select, Stat, StatGrid, Tag, TextArea, cx, useIsMobile, type Color } from '@/components/ui'
+import { Button, Checkbox, Chips, Empty, ErrorBox, Field, IconButton, KV, Loading, Modal, Money, NumInput, PageHeader, RangeFilter, useRange, SearchBox, Select, Stat, StatGrid, Tag, TextArea, confirmDialog, cx, useIsMobile, type Color } from '@/components/ui'
 import { LoadMore, VirtualList } from '@/components/virtual'
 import { nums, q as one, rpc } from '@/lib/api'
 import { useCan } from '@/lib/auth'
@@ -75,7 +75,9 @@ export default function InvoicesPage() {
   const arg = useNav((s) => s.arg)
   const [range, setRange] = useRange('today')
   const [status, setStatus] = useState<Status>('all')
-  const [user, setUser] = useState('')
+  // جاي من "مين باع النهارده": الفواتير بتتفتح على الموظف ده
+  const [user, setUser] = useState(() => useNav.getState().invoicesUser ?? '')
+  useEffect(() => useNav.setState({ invoicesUser: null }), [])
   const [q, setQ] = useState('')
   const search = useDebounced(q)
   const rk = `${iso(range.from)}:${iso(range.to)}`
@@ -222,12 +224,30 @@ function InvoiceDetailLoader({ id, fromList, onBack }: { id: number; fromList: I
 export function InvoiceDetail({ inv, onBack }: { inv: Invoice; onBack?: () => void }) {
   const canReturn = useCan('returns')
   const canReports = useCan('reports')
+  const canUndo = useCan('undo')
   const [mode, setMode] = useState<'return' | 'exchange' | null>(null)
+  const [cancelling, setCancelling] = useState(false)
   const st = invoiceStatus(inv)
   const debt = roundMoney(inv.total - inv.paid)
   const returned = returnedQty(inv)
   const anyLeft = inv.invoice_items.some((it) => it.qty - (returned.get(it.id) ?? 0) > 0)
   const cost = inv.invoice_items.reduce((s, it) => s + it.cost_price * it.qty, 0)
+  const hasAdjust = inv.adjustments.some((a) => !a.voided)
+
+  // الإلغاء = تراجع عن عملية البيع: الفلوس والكميات والآجل بيرجعوا، والفاتورة بتفضل متعلّم عليها "ملغاة"
+  const cancelInvoice = async () => {
+    const ok = await confirmDialog({
+      title: `إلغاء فاتورة #${inv.no}`,
+      message: `هيتخصم ${money(inv.paid)} ج.م من الدرج${debt > EPS ? ` وهيتشال ${money(debt)} ج.م من حساب العميل` : ''}.\nالفاتورة هتفضل ظاهرة متعلّم عليها "ملغاة".`,
+      ok: 'إلغاء الفاتورة',
+      cancel: 'رجوع',
+      danger: true,
+    })
+    if (!ok) return
+    setCancelling(true)
+    await run(() => rpc('undo', { p_op: inv.op_id }), `تم إلغاء فاتورة #${inv.no}`)
+    setCancelling(false)
+  }
 
   return (
     <div className="card overflow-hidden">
@@ -281,7 +301,7 @@ export function InvoiceDetail({ inv, onBack }: { inv: Invoice; onBack?: () => vo
           <div className="mt-4 space-y-2">
             <div className="font-extrabold">المرتجعات والاستبدالات</div>
             {inv.adjustments.map((a) => (
-              <AdjustmentCard key={a.id} a={a} />
+              <AdjustmentCard key={a.id} a={a} canUndo={canUndo && !inv.voided} />
             ))}
           </div>
         )}
@@ -296,15 +316,33 @@ export function InvoiceDetail({ inv, onBack }: { inv: Invoice; onBack?: () => vo
             </Button>
           </div>
         )}
+        {canUndo &&
+          !inv.voided &&
+          (hasAdjust ? (
+            <div className="mt-3 text-center text-xs text-ink-3">عشان تلغي الفاتورة، الغي المرتجع أو الاستبدال اللي عليها الأول</div>
+          ) : (
+            <Button variant="ghost" block className="mt-2 text-red" icon={<Ban className="h-5 w-5" />} loading={cancelling} onClick={cancelInvoice}>
+              إلغاء الفاتورة
+            </Button>
+          ))}
       </div>
       {mode && <AdjustModal inv={inv} mode={mode} onClose={() => setMode(null)} />}
     </div>
   )
 }
 
-function AdjustmentCard({ a }: { a: Adjustment }) {
+function AdjustmentCard({ a, canUndo }: { a: Adjustment; canUndo: boolean }) {
+  const [busy, setBusy] = useState(false)
   const ins = a.adjustment_items.filter((x) => x.direction === 'in')
   const outs = a.adjustment_items.filter((x) => x.direction === 'out')
+  const label = a.kind === 'return' ? 'المرتجع' : 'الاستبدال'
+  const cancel = async () => {
+    const ok = await confirmDialog({ title: `إلغاء ${label}`, message: 'الفلوس والمنتجات هيرجعوا زي ما كانوا قبله.', ok: `إلغاء ${label}`, cancel: 'رجوع', danger: true })
+    if (!ok) return
+    setBusy(true)
+    await run(() => rpc('undo', { p_op: a.op_id }), `تم إلغاء ${label}`)
+    setBusy(false)
+  }
   return (
     <div className={cx('rounded-btn border p-3 text-sm', a.voided ? 'border-line opacity-60' : a.kind === 'return' ? 'border-red/30 bg-red-light/40' : 'border-purple/30 bg-purple-light/40')}>
       <div className="flex items-center justify-between gap-2">
@@ -337,6 +375,11 @@ function AdjustmentCard({ a }: { a: Adjustment }) {
         {a.debt_delta < -EPS && <Tag color="teal">اتخصم من المديونية {money(-a.debt_delta)}</Tag>}
       </div>
       {a.note && <div className="mt-1 text-xs text-ink-3">{a.note}</div>}
+      {canUndo && !a.voided && (
+        <Button size="sm" variant="ghost" className="mt-1 text-red" loading={busy} onClick={cancel}>
+          إلغاء {label}
+        </Button>
+      )}
     </div>
   )
 }

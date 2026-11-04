@@ -1,6 +1,6 @@
-import { AlertTriangle, CloudDownload, FileUp, ShieldCheck } from 'lucide-react'
+import { AlertTriangle, CloudDownload, FileUp, History, ShieldCheck } from 'lucide-react'
 import { useRef, useState, type ReactNode } from 'react'
-import { Button, PageHeader, confirmDialog, cx } from '@/components/ui'
+import { Button, PageHeader, confirmDialog, cx, promptDialog } from '@/components/ui'
 import { fetchAll, rpc } from '@/lib/api'
 import { dateTimeFmt, daysAgo, ymd } from '@/lib/format'
 import { useShop } from '@/lib/shop'
@@ -8,6 +8,7 @@ import { starterCaseGroups } from '@/lib/starterCases'
 import { supabase } from '@/lib/supabase'
 import { toast, toastError } from '@/lib/toast'
 
+const BACKUP_FORMAT = 'cashier-cloud-backup-v1'
 const BACKUP_TABLES = [
   'categories', 'products', 'variants', 'stock_moves', 'product_parts', 'compat_groups', 'compat_devices',
   'used_purchases', 'customers', 'customer_txns', 'invoices', 'invoice_items', 'adjustments', 'adjustment_items',
@@ -49,27 +50,62 @@ export default function BackupPage() {
   const [busy, setBusy] = useState<string | null>(null)
   const [progress, setProgress] = useState(0)
   const fileRef = useRef<HTMLInputElement>(null)
+  const restoreRef = useRef<HTMLInputElement>(null)
   const last = settings.last_cloud_backup
   const days = last ? daysAgo(last) : null
   const late = days == null || days >= 7
 
+  const downloadBackup = async (name: string) => {
+    setProgress(0)
+    const out: Record<string, unknown> = { format: BACKUP_FORMAT, created_at: new Date().toISOString() }
+    for (let i = 0; i < BACKUP_TABLES.length; i++) {
+      const t = BACKUP_TABLES[i]
+      out[t] = await fetchAll(() => supabase.from(t).select().order(t === 'app_settings' ? 'key' : 'id'))
+      setProgress((i + 1) / BACKUP_TABLES.length)
+    }
+    download(`${name}-${ymd(new Date())}.json`, out)
+    await rpc('save_settings', { p_values: { last_cloud_backup: new Date().toISOString() }, p_description: 'تم تنزيل نسخة احتياطية من كل البيانات' })
+  }
+
   const backup = async () => {
     setBusy('backup')
-    setProgress(0)
     try {
-      const out: Record<string, unknown> = { format: 'cashier-cloud-backup-v1', created_at: new Date().toISOString() }
-      for (let i = 0; i < BACKUP_TABLES.length; i++) {
-        const t = BACKUP_TABLES[i]
-        out[t] = await fetchAll(() => supabase.from(t).select().order(t === 'app_settings' ? 'key' : 'id'))
-        setProgress((i + 1) / BACKUP_TABLES.length)
-      }
-      download(`نسخة-كاشير-${ymd(new Date())}.json`, out)
-      await rpc('save_settings', { p_values: { last_cloud_backup: new Date().toISOString() }, p_description: 'تم تنزيل نسخة احتياطية من كل البيانات' })
+      await downloadBackup('نسخة-كاشير')
       toast('النسخة اتنزلت. احتفظ بيها في مكان أمان (درايف أو واتساب لنفسك)')
     } catch (e) {
       toastError(e)
     }
     setBusy(null)
+  }
+
+  const restoreFile = async (f: File) => {
+    let data: Record<string, unknown>
+    try {
+      data = JSON.parse(await f.text())
+      if (!data || data.format !== BACKUP_FORMAT) throw new Error()
+    } catch {
+      return toast('الملف ده مش نسخة احتياطية من البرنامج', 'error')
+    }
+    const n = (k: string) => (Array.isArray(data[k]) ? (data[k] as unknown[]).length : 0)
+    const word = await promptDialog({
+      title: 'استرجاع نسخة احتياطية',
+      message: `النسخة بتاريخ ${data.created_at ? dateTimeFmt(String(data.created_at)) : 'مش معروف'}، وفيها ${n('products')} منتج و ${n('invoices')} فاتورة و ${n('customers')} عميل.\n\nبيانات المحل كلها هترجع زي النسخة دي بالظبط، وأي حاجة اتعملت بعد تاريخها هتضيع. المستخدمين وباسورداتهم مش هيتغيروا.\n\nقبل ما يبدأ هتتنزل نسخة من الوضع الحالي عشان تقدر ترجعله.`,
+      label: 'للتأكيد اكتب كلمة: استرجاع',
+      ok: 'استرجاع',
+    })
+    if (word == null) return
+    if (word.trim() !== 'استرجاع') return toast('اكتب كلمة "استرجاع" بالظبط عشان تأكد', 'error')
+    setBusy('restore')
+    try {
+      await downloadBackup('نسخة-قبل-الاسترجاع')
+      const { profiles: _members, ...file } = data // المستخدمين مبيرجعوش من النسخة
+      await rpc('restore_backup', { p: file })
+      toast('تم استرجاع النسخة. البرنامج هيتحمّل من الأول')
+      setTimeout(() => location.reload(), 1500)
+    } catch (e) {
+      toastError(e)
+      setBusy(null)
+    }
   }
 
   const importFile = async (f: File) => {
@@ -142,7 +178,7 @@ export default function BackupPage() {
         {late && (
           <div className="flex items-center gap-3 rounded-card border border-orange/30 bg-orange-light p-4 text-orange">
             <AlertTriangle className="h-6 w-6 shrink-0" />
-            <div className="font-bold">{days == null ? 'لسه معملتش نسخة احتياطية. نزّل نسخة دلوقتي.' : `آخر نسخة احتياطية من ${days} يوم. نزّل نسخة جديدة.`}</div>
+            <div className="font-bold">{days == null ? 'لسه معملتش نسخة احتياطية. نزّل نسخة دلوقتي.' : `آخر نسخة احتياطية من ${days} ${days <= 10 ? "أيام" : "يوم"}. نزّل نسخة جديدة.`}</div>
           </div>
         )}
         <Section
@@ -165,6 +201,27 @@ export default function BackupPage() {
               <div className="h-full bg-primary transition-all" style={{ width: `${progress * 100}%` }} />
             </div>
           )}
+        </Section>
+        <Section
+          icon={<History />}
+          color="bg-orange-light text-orange"
+          title="استرجاع نسخة"
+          text="لو حصلت مشكلة كبيرة، اختار ملف نسخة نزّلته قبل كده وبيانات المحل هترجع زي ما كانت وقتها. البرنامج بينزّل نسخة من الوضع الحالي الأول."
+        >
+          <Button variant="soft" loading={busy === 'restore'} disabled={!!busy} onClick={() => restoreRef.current?.click()} icon={<History className="h-5 w-5" />}>
+            {busy === 'restore' ? 'جاري الاسترجاع...' : 'اختيار ملف النسخة'}
+          </Button>
+          <input
+            ref={restoreRef}
+            type="file"
+            accept=".json,application/json"
+            hidden
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              e.target.value = ''
+              if (f) void restoreFile(f)
+            }}
+          />
         </Section>
         <Section
           icon={<FileUp />}

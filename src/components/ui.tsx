@@ -387,6 +387,64 @@ export function RangeFilter({ value, onChange, keys = ['today', 'week', 'month',
   )
 }
 
+// ───────── زرار الرجوع ─────────
+// زرار الرجوع في أندرويد (والسحب على الآيفون) بيقفل آخر شباك مفتوح بدل ما يخرج من الصفحة.
+// كل الشبابيك المفتوحة ليها خطوة واحدة في تاريخ المتصفح، وبنظبطها بعد ما الشبابيك تتفتح وتتقفل.
+
+interface BackEntry {
+  close: () => void
+  dismissable: boolean
+}
+const backStack: BackEntry[] = []
+let skipPop = false
+let syncTimer = 0
+
+const onGuard = () => (history.state as { modalGuard?: boolean } | null)?.modalGuard === true
+
+function syncBack() {
+  clearTimeout(syncTimer)
+  syncTimer = window.setTimeout(() => {
+    if (backStack.length && !onGuard()) {
+      history.pushState({ modalGuard: true }, '')
+    } else if (!backStack.length && onGuard()) {
+      skipPop = true
+      history.back()
+    }
+  }, 0)
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('popstate', () => {
+    if (skipPop) {
+      skipPop = false
+      syncBack()
+      return
+    }
+    const top = backStack[backStack.length - 1]
+    if (top) {
+      if (top.dismissable) top.close()
+      syncBack()
+    } else if (onGuard()) {
+      history.back() // خطوة قديمة من شباك اتقفل بالتنقل لصفحة تانية
+    }
+  })
+}
+
+export function useBackClose(open: boolean, onClose: () => void, dismissable = true) {
+  const closeRef = useRef(onClose)
+  closeRef.current = onClose
+  useEffect(() => {
+    if (!open) return
+    const entry: BackEntry = { close: () => closeRef.current(), dismissable }
+    backStack.push(entry)
+    syncBack()
+    return () => {
+      backStack.splice(backStack.indexOf(entry), 1)
+      syncBack()
+    }
+  }, [open, dismissable])
+}
+
 // ───────── النوافذ (bottom sheet على الموبايل) ─────────
 
 let openModals = 0
@@ -415,6 +473,7 @@ export function Modal({
   const mobile = useIsMobile()
   const closeRef = useRef(onClose)
   closeRef.current = onClose
+  useBackClose(open, onClose, dismissable)
   useEffect(() => {
     if (!open) return
     lockScroll(true)

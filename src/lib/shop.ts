@@ -23,6 +23,7 @@ interface ShopState {
   categories: Category[]
   parts: Parts
   compat: CompatGroup[]
+  compatReady: boolean
   offers: Offer[]
   settings: Record<string, string>
 }
@@ -36,6 +37,7 @@ export const useShop = create<ShopState>(() => ({
   categories: [],
   parts: { byParent: new Map(), parentsOf: new Map() },
   compat: [],
+  compatReady: false,
   offers: [],
   settings: {},
 }))
@@ -105,12 +107,16 @@ function emitSoon() {
 async function loadCatalog() {
   const [prods, vars] = await Promise.all([
     fetchAll<Product>(() => supabase.from('products').select().eq('archived', false).order('id', { ascending: false })),
-    fetchAll<Variant>(() => supabase.from('variants').select().eq('archived', false).order('id')),
+    // أنواع المنتجات الموجودة بس (المنتج المحذوف أنواعه بتفضل في الجدول)
+    fetchAll<Variant & { p?: unknown }>(() => supabase.from('variants').select('*, p:products!inner(archived)').eq('archived', false).eq('p.archived', false).order('id')),
   ])
   products.clear()
   variants.clear()
   for (const p of prods) products.set(p.id, fixProduct(p))
-  for (const v of vars) variants.set(v.id, fixVariant(v))
+  for (const v of vars) {
+    delete v.p
+    variants.set(v.id, fixVariant(v))
+  }
   buildViews()
 }
 
@@ -144,7 +150,24 @@ async function loadCompat() {
   }
   useShop.setState({
     compat: (groups as Omit<CompatGroup, 'devices'>[]).map((g) => ({ ...g, devices: byGroup.get(g.id) ?? [] })),
+    compatReady: true,
   })
+}
+
+// التوفيقات آلاف الأجهزة، فبتتحمّل لما صفحتها تتفتح بس مش مع كل فتحة للبرنامج
+let compatWanted = false
+export async function ensureCompat() {
+  if (compatWanted) return
+  compatWanted = true
+  try {
+    await loadCompat()
+  } catch (e) {
+    compatWanted = false
+    throw e
+  }
+}
+const reloadCompat = async () => {
+  if (compatWanted) await loadCompat()
 }
 
 async function loadOffers() {
@@ -168,8 +191,8 @@ async function loadSettings() {
 const loaders: Record<string, () => Promise<void>> = {
   categories: loadCategories,
   product_parts: loadParts,
-  compat_groups: loadCompat,
-  compat_devices: loadCompat,
+  compat_groups: reloadCompat,
+  compat_devices: reloadCompat,
   offers: loadOffers,
   offer_items: loadOffers,
   app_settings: loadSettings,
@@ -196,7 +219,12 @@ function applyChange(c: Change) {
     if (!id) return
     if (c.table === 'products') {
       if (isDel) products.delete(id)
-      else products.set(id, fixProduct({ ...(c.new as unknown as Product) }))
+      else {
+        const row = fixProduct({ ...(c.new as unknown as Product) })
+        // منتج رجع بعد حذف (تراجع): أنواعه مش متحمّلة
+        if (c.eventType === 'UPDATE' && !row.archived && !products.has(id)) scheduleLoad(loadCatalog)
+        products.set(id, row)
+      }
     } else {
       if (isDel) variants.delete(id)
       else variants.set(id, fixVariant({ ...(c.new as unknown as Variant) }))
@@ -220,7 +248,7 @@ export async function startShop() {
     }),
   )
   try {
-    await Promise.all([loadCatalog(), loadCategories(), loadParts(), loadCompat(), loadOffers(), loadSettings()])
+    await Promise.all([loadCatalog(), loadCategories(), loadParts(), loadOffers(), loadSettings()])
     useShop.setState({ ready: true, error: null })
   } catch (e) {
     useShop.setState({ error: e instanceof Error ? e.message : String(e) })
@@ -233,6 +261,7 @@ export function stopShop() {
   offs = []
   products.clear()
   variants.clear()
+  compatWanted = false
   useShop.setState({
     ready: false,
     error: null,
@@ -241,6 +270,7 @@ export function stopShop() {
     variantById: new Map(),
     categories: [],
     compat: [],
+    compatReady: false,
     offers: [],
     settings: {},
   })

@@ -155,6 +155,7 @@ export interface Adjustment {
   cash_delta: number
   debt_delta: number
   note: string | null
+  op_id: number
   voided: boolean
   created_at: string
   adjustment_items: AdjustmentItem[]
@@ -171,6 +172,7 @@ export interface Invoice {
   paid: number
   note: string | null
   user_name: string | null
+  op_id: number
   voided: boolean
   created_at: string
   invoice_items: InvoiceItem[]

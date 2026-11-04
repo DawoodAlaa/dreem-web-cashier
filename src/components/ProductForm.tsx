@@ -1,9 +1,9 @@
 import { Camera, ImageIcon, ImageOff, Plus, Trash2 } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { rpc } from '@/lib/api'
 import { useCan } from '@/lib/auth'
 import { EPS, money, parseInt0, parseNum } from '@/lib/format'
-import { uploadProductImage } from '@/lib/images'
+import { deleteImageIfUnused, makeThumb, thumbUrl, uploadProductImage } from '@/lib/images'
 import { useShop, useTrackStock } from '@/lib/shop'
 import { run, toastError } from '@/lib/toast'
 import type { ProductView } from '@/lib/types'
@@ -23,10 +23,22 @@ interface VRow {
 const emptyRow = (stock = '0'): VRow => ({ id: null, name: '', stock, uncounted: false, cost: '', sell: '', minSell: '' })
 const priceStr = (v: number | null | undefined) => (v == null ? '' : money(v).replace(/,/g, ''))
 
+// صور ملهاش مصغرة (اترفعت قبلها): عشان منطلبهاش تاني في نفس المرة
+const noThumb = new Set<string>()
+
 export function ProductImage({ url, className, icon }: { url: string | null; className?: string; icon?: React.ReactNode }) {
   const [err, setErr] = useState(false)
+  const [, retry] = useState(0)
+  useEffect(() => setErr(false), [url])
   if (!url || err) return <div className={cx('flex items-center justify-center bg-bg text-ink-3', className)}>{icon ?? <ImageOff className="h-6 w-6 opacity-50" />}</div>
-  return <img src={url} alt="" loading="lazy" decoding="async" onError={() => setErr(true)} className={cx('bg-bg object-cover', className)} />
+  const thumb = noThumb.has(url) ? null : thumbUrl(url)
+  const onError = () => {
+    if (!thumb) return setErr(true)
+    noThumb.add(url)
+    void makeThumb(url)
+    retry((n) => n + 1)
+  }
+  return <img src={thumb ?? url} alt="" loading="lazy" decoding="async" onError={onError} className={cx('bg-bg object-cover', className)} />
 }
 
 // موبايل أو تابلت (شاشة لمس): نعرض زرار "صوّر" يفتح الكاميرا على طول
@@ -172,6 +184,7 @@ export function ProductForm({
     }, p ? 'تم حفظ التعديلات' : 'تم إضافة المنتج')
     setBusy(false)
     if (ok) {
+      if (p?.image_url && p.image_url !== image) void deleteImageIfUnused(p.image_url).catch(() => {})
       onSaved?.(id)
       onClose()
     }

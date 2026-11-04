@@ -34,6 +34,7 @@ function useLongPress(onLong: () => void, ms = 550) {
     onPointerDown: start,
     onPointerUp: cancel,
     onPointerLeave: cancel,
+    onPointerCancel: cancel, // السحب بالعرض مش ضغطة طويلة
     onContextMenu: (e: React.MouseEvent) => {
       e.preventDefault()
       cancel()
@@ -179,7 +180,7 @@ export default function ProductsPage() {
       />
 
       <div className="mb-3 space-y-2">
-        <div className="flex flex-wrap gap-2">
+        <div className="scrollbar-none -mx-3 flex gap-2 overflow-x-auto px-3 lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0 tab:flex-nowrap tab:overflow-x-auto">
           <button type="button" className={cx('chip', cat === ALL && 'chip-on')} onClick={() => setCat(ALL)}>
             الكل <span className={cx('num text-xs', cat === ALL ? 'text-white/80' : 'text-ink-3')}>{views.length}</span>
           </button>

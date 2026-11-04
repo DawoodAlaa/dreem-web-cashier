@@ -35,7 +35,7 @@ import { useShortageCount } from '@/lib/shortages'
 import { useShop, useTrackStock } from '@/lib/shop'
 import { run } from '@/lib/toast'
 import { SwitchUser } from './SwitchUser'
-import { Button, Field, IconButton, Input, Modal, Tag, cx } from './ui'
+import { Button, Field, IconButton, Input, Modal, Tag, cx, useBackClose } from './ui'
 
 const ICONS: Record<PageId, LucideIcon> = {
   sales: ShoppingCart,
@@ -443,6 +443,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const profile = useAuth((s) => s.profile)
   const online = useOnline()
   const setMenu = (v: boolean) => useNav.setState({ menuOpen: v })
+  useBackClose(menuOpen, () => setMenu(false))
 
   return (
     <div className="min-h-[100dvh] lg:pr-[248px] tab:pr-[92px]">

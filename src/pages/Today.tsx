@@ -1,11 +1,11 @@
-import { AlertTriangle, ChevronLeft, HandCoins, Landmark, ListTodo, PackageX, ShoppingCart, TrendingUp, UserRound, Wallet } from 'lucide-react'
+import { AlertTriangle, ChevronLeft, CloudDownload, HandCoins, Landmark, ListTodo, PackageX, ShoppingCart, TrendingUp, UserRound, Wallet } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { actionStyle, iconBg } from '@/components/logStyle'
 import { Empty, ErrorBox, Loading, Money, cx } from '@/components/ui'
 import { q, rpc } from '@/lib/api'
 import { useAuth, useCan } from '@/lib/auth'
-import { int, iso, makeRange, money, timeFmt } from '@/lib/format'
-import { canOpen, go, type PageId } from '@/lib/nav'
+import { daysAgo, int, iso, makeRange, money, timeFmt } from '@/lib/format'
+import { canOpen, go, useNav, type PageId } from '@/lib/nav'
 import { onStatus } from '@/lib/realtime'
 import { useShortageCount } from '@/lib/shortages'
 import { useShop, useTrackStock } from '@/lib/shop'
@@ -116,6 +116,15 @@ export default function TodayPage() {
   const shortages = useShortageCount()
   const track = useTrackStock()
   const open = (p: PageId) => canOpen(p, profile) && go(p)
+  const openSeller = (name: string) => {
+    if (!canOpen('invoices', profile)) return
+    useNav.setState({ invoicesUser: name })
+    go('invoices')
+  }
+  // تذكير المدير بالنسخة الاحتياطية كل أسبوع
+  const lastBackup = useShop((s) => s.settings.last_cloud_backup)
+  const backupDays = lastBackup ? daysAgo(lastBackup) : null
+  const backupLate = canOpen('backup', profile) && (backupDays == null || backupDays >= 7)
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
@@ -129,6 +138,16 @@ export default function TodayPage() {
           {live ? 'مباشر' : 'بيتوصل...'}
         </span>
       </div>
+
+      {backupLate && (
+        <button type="button" onClick={() => open('backup')} className="flex w-full items-center gap-3 rounded-card border border-orange/30 bg-orange-light p-3 text-right active:scale-[0.99]">
+          <CloudDownload className="h-6 w-6 shrink-0 text-orange" />
+          <span className="min-w-0 flex-1 text-sm font-bold text-orange">
+            {backupDays == null ? 'لسه معملتش نسخة احتياطية.' : `آخر نسخة احتياطية من ${backupDays} ${backupDays <= 10 ? "أيام" : "يوم"}.`} دوس هنا ونزّل نسخة عشان بياناتك تفضل في أمان
+          </span>
+          <ChevronLeft className="h-5 w-5 shrink-0 text-orange" />
+        </button>
+      )}
 
       {/* المبيعات */}
       {canSales && (
@@ -200,19 +219,22 @@ export default function TodayPage() {
           ) : (
             <div className="space-y-3">
               {staff.map((x) => (
-                <div key={x.name}>
+                <button key={x.name} type="button" className="block w-full text-right active:opacity-70" onClick={() => openSeller(x.name)}>
                   <div className="flex items-center justify-between gap-2 text-sm">
                     <span className="flex min-w-0 items-center gap-2 font-bold">
                       <UserRound className="h-4 w-4 shrink-0 text-ink-3" />
                       <span className="truncate">{x.name}</span>
                       <span className="shrink-0 text-xs font-medium text-ink-3">{int(x.count)} فاتورة</span>
                     </span>
-                    <Money v={x.total} className="shrink-0 font-extrabold" />
+                    <span className="flex shrink-0 items-center gap-1">
+                      <Money v={x.total} className="font-extrabold" />
+                      <ChevronLeft className="h-4 w-4 text-ink-3" />
+                    </span>
                   </div>
                   <div className="mt-1 h-2 overflow-hidden rounded-full bg-bg">
                     <div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(4, (x.total / maxStaff) * 100)}%` }} />
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           )}

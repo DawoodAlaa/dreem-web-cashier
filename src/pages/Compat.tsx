@@ -1,11 +1,11 @@
 import { Pencil, Plus, Repeat2, Trash2, X } from 'lucide-react'
-import { useMemo, useState } from 'react'
-import { Button, Chips, Empty, Field, Input, Modal, PageHeader, SearchBox, Tag, TextArea, confirmDialog, cx } from '@/components/ui'
+import { useEffect, useMemo, useState } from 'react'
+import { Button, Chips, Empty, ErrorBox, Field, Input, Loading, Modal, PageHeader, SearchBox, Tag, TextArea, confirmDialog, cx } from '@/components/ui'
 import { VirtualList } from '@/components/virtual'
-import { rpc } from '@/lib/api'
+import { errMsg, rpc } from '@/lib/api'
 import { useCan } from '@/lib/auth'
 import { norm } from '@/lib/format'
-import { useShop } from '@/lib/shop'
+import { ensureCompat, useShop } from '@/lib/shop'
 import { run } from '@/lib/toast'
 import type { CompatGroup } from '@/lib/types'
 
@@ -24,10 +24,17 @@ interface Row {
 
 export default function CompatPage() {
   const compat = useShop((s) => s.compat)
+  const ready = useShop((s) => s.compatReady)
   const canEdit = useCan('products')
   const [q, setQ] = useState('')
   const [kind, setKind] = useState(ALL)
   const [edit, setEdit] = useState<CompatGroup | 'new' | null>(null)
+  const [failed, setFailed] = useState<string | null>(null)
+  const load = () => {
+    setFailed(null)
+    ensureCompat().catch((e) => setFailed(errMsg(e)))
+  }
+  useEffect(load, [])
 
   const rows = useMemo<Row[]>(
     () =>
@@ -83,7 +90,11 @@ export default function CompatPage() {
         )}
         {q && <div className="text-sm font-bold text-ink-3">{list.length ? `${list.length} نتيجة` : ''}</div>}
       </div>
-      {list.length === 0 ? (
+      {failed ? (
+        <ErrorBox text={failed} onRetry={load} />
+      ) : !ready ? (
+        <Loading />
+      ) : list.length === 0 ? (
         <Empty icon={<Repeat2 />} text={rows.length ? 'مفيش اسكرينة بتركب على الموبايل ده في القايمة' : 'مفيش توفيقات لسه'} />
       ) : (
         <VirtualList

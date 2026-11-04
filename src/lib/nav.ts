@@ -81,9 +81,10 @@ interface NavState {
   menuOpen: boolean
   switchOpen: boolean // شباك تبديل المستخدم
   salesQuery: string | null // بحث جاي من شريط البحث السريع
+  invoicesUser: string | null // فواتير موظف جاية من شاشة النهارده
 }
 
-export const useNav = create<NavState>(() => ({ ...fromHash(), menuOpen: false, switchOpen: false, salesQuery: null }))
+export const useNav = create<NavState>(() => ({ ...fromHash(), menuOpen: false, switchOpen: false, salesQuery: null, invoicesUser: null }))
 
 export function go(page: PageId, arg: string | null = null) {
   const h = `#/${page}${arg != null ? '/' + encodeURIComponent(arg) : ''}`
