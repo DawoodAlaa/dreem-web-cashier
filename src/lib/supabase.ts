@@ -76,4 +76,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   realtime: { params: { eventsPerSecond: 30 } },
 })
 
+/** client منفصل مبيحفظش جلسة: المدير بيعمل بيه حساب موظف من غير ما جلسته هو تتغير */
+export const tempClient = () => createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { storageKey: 'cd.temp', persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } })
+
 export const usernameToEmail = (u: string) => `${u.trim().toLowerCase()}@users.cashier-dreem.app`

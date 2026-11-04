@@ -5,7 +5,7 @@ import { startRealtime, stopRealtime } from './realtime'
 import { markDeviceShared, removeAccount, saveAccount, setLastUsername, touchAccount, updateSavedPassword } from './savedAccounts'
 import { startShop, stopShop } from './shop'
 import { startShortages, stopShortages } from './shortages'
-import { setRemember, supabase, usernameToEmail } from './supabase'
+import { setRemember, supabase, tempClient, usernameToEmail } from './supabase'
 import type { Perm, Profile } from './types'
 import { clearLiveCache } from './useLive'
 
@@ -293,6 +293,34 @@ export async function signOut() {
     /* ignore */
   }
   await onSession(null)
+}
+
+/** المدير بيعمل حساب موظف جاهز ومتفعّل من جوه البرنامج */
+export async function createMember(f: { name: string; username: string; password: string; perms: Partial<Record<Perm, boolean>> }) {
+  if (!f.name.trim()) throw new AppError('اكتب اسم الموظف')
+  checkUsername(f.username)
+  checkPassword(f.password)
+  const code = await rpc<string | null>('shop_join_code')
+  if (!code) throw new AppError('المدير بس اللي يقدر يضيف مستخدمين')
+  const tmp = tempClient()
+  const creds = { email: usernameToEmail(f.username), password: f.password }
+  try {
+    let { data, error } = await tmp.auth.signUp(creds).catch((e) => ({ data: { user: null, session: null }, error: e }))
+    if (error && !/already registered|already exists/i.test(String(error.message))) throw new AppError(errMsg(error))
+    if (error || !data.session) {
+      // لو محاولة قبل كده فشلت في النص بنكمّل بنفس الحساب. غير كده الاسم محجوز لحد تاني
+      const r = await tmp.auth.signInWithPassword(creds)
+      if (r.error) throw new AppError('اسم المستخدم ده محجوز. اختار اسم تاني')
+      data = r.data
+    }
+    const uid = data.user?.id
+    if (!uid) throw new AppError('مقدرناش نعمل الحساب. جرب تاني')
+    const j = await tmp.rpc('join_shop', { p_code: code, p_name: f.name.trim(), p_username: f.username.trim().toLowerCase() })
+    if (j.error) throw new AppError(errMsg(j.error))
+    await rpc('set_member', { p_user: uid, p_active: true, p_perms: f.perms, p_name: f.name.trim() })
+  } finally {
+    await tmp.auth.signOut({ scope: 'local' }).catch(() => {})
+  }
 }
 
 export async function changeMyPassword(password: string) {
