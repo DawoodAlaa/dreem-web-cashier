@@ -12,7 +12,7 @@ const BACKUP_TABLES = [
   'categories', 'products', 'variants', 'stock_moves', 'product_parts', 'compat_groups', 'compat_devices',
   'used_purchases', 'customers', 'customer_txns', 'invoices', 'invoice_items', 'adjustments', 'adjustment_items',
   'held_carts', 'losses', 'expenses', 'cash_moves', 'settlements', 'suppliers', 'purchases', 'purchase_items',
-  'supplier_txns', 'offers', 'offer_items', 'activity_logs', 'app_settings', 'profiles',
+  'supplier_txns', 'offers', 'offer_items', 'activity_logs', 'app_settings', 'profiles', 'salary_moves', 'shortages',
 ]
 
 function Section({ icon, color, title, text, children }: { icon: ReactNode; color: string; title: string; text: ReactNode; children: ReactNode }) {

@@ -1,8 +1,8 @@
 import { ArrowDownToLine, FileBarChart, Landmark } from 'lucide-react'
 import { useState } from 'react'
-import { Button, Empty, Field, Input, Loading, Modal, Money, NumInput, PageHeader, RangeFilter, Stat, StatGrid, Tag, cx, type Color } from '@/components/ui'
+import { Button, Empty, Field, Input, Loading, Modal, Money, NumInput, PageHeader, RangeFilter, useRange, Stat, StatGrid, Tag, cx, type Color } from '@/components/ui'
 import { fetchAll, nums, q as one, rpc } from '@/lib/api'
-import { EPS, dateTimeFmt, iso, makeRange, money, parseNum, roundMoney, type DateRange } from '@/lib/format'
+import { EPS, dateTimeFmt, iso, money, parseNum, roundMoney, type DateRange } from '@/lib/format'
 import { supabase } from '@/lib/supabase'
 import { run } from '@/lib/toast'
 import type { CashMove, Settlement } from '@/lib/types'
@@ -26,7 +26,7 @@ export function useCashBalance() {
 }
 
 export default function DrawerPage() {
-  const [range, setRange] = useState<DateRange>(() => makeRange('today'))
+  const [range, setRange] = useRange('today')
   const key = `${iso(range.from)}:${iso(range.to)}`
   const balance = useCashBalance()
   const stats = useLive(`dstats:${key}`, ['cash_moves', 'losses'], async () => {

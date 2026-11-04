@@ -1,13 +1,13 @@
 import { TrendingDown, TrendingUp } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { DataTable, ErrorBox, Loading, Money, PageHeader, RangeFilter, Segmented, Stat, StatGrid, Tag, cx } from '@/components/ui'
+import { DataTable, ErrorBox, Loading, Money, PageHeader, RangeFilter, useRange, Segmented, Stat, StatGrid, Tag, cx } from '@/components/ui'
 import { rpc } from '@/lib/api'
-import { dateFmt, fromYmd, int, iso, makeRange, money, num, type DateRange } from '@/lib/format'
+import { dateFmt, fromYmd, int, iso, money, num } from '@/lib/format'
 import type { ProfitReport } from '@/lib/types'
 import { useLive } from '@/lib/useLive'
 
 export default function ReportsPage() {
-  const [range, setRange] = useState<DateRange>(() => makeRange('month'))
+  const [range, setRange] = useRange('month')
   const [sort, setSort] = useState<'profit' | 'qty'>('profit')
   const live = useLive(`profit:${iso(range.from)}:${iso(range.to)}`, ['invoices', 'adjustments', 'expenses', 'losses'], async () => {
     const r = await rpc<ProfitReport>('profit_report', { p_from: iso(range.from), p_to: iso(range.to) })

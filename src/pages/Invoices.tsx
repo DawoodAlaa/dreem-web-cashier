@@ -1,11 +1,11 @@
 import { ArrowRight, FileText, Plus, RotateCcw, Repeat, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { ProductPicker } from '@/components/ProductPicker'
-import { Button, Checkbox, Chips, Empty, ErrorBox, Field, IconButton, KV, Loading, Modal, Money, NumInput, PageHeader, RangeFilter, SearchBox, Select, Stat, StatGrid, Tag, TextArea, cx, useIsMobile, type Color } from '@/components/ui'
+import { Button, Checkbox, Chips, Empty, ErrorBox, Field, IconButton, KV, Loading, Modal, Money, NumInput, PageHeader, RangeFilter, useRange, SearchBox, Select, Stat, StatGrid, Tag, TextArea, cx, useIsMobile, type Color } from '@/components/ui'
 import { LoadMore, VirtualList } from '@/components/virtual'
 import { nums, q as one, rpc } from '@/lib/api'
 import { useCan } from '@/lib/auth'
-import { EPS, dateTimeFmt, iso, makeRange, money, parseInt0, parseNum, roundMoney, variantLabel, type DateRange } from '@/lib/format'
+import { EPS, dateTimeFmt, iso, money, parseInt0, parseNum, roundMoney, variantLabel, type DateRange } from '@/lib/format'
 import { setArg, useNav } from '@/lib/nav'
 import { vPrice } from '@/lib/shop'
 import { supabase } from '@/lib/supabase'
@@ -73,7 +73,7 @@ async function buildInvoicesQuery(range: DateRange, status: Status, search: stri
 export default function InvoicesPage() {
   const mobile = useIsMobile()
   const arg = useNav((s) => s.arg)
-  const [range, setRange] = useState<DateRange>(() => makeRange('today'))
+  const [range, setRange] = useRange('today')
   const [status, setStatus] = useState<Status>('all')
   const [user, setUser] = useState('')
   const [q, setQ] = useState('')

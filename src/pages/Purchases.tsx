@@ -2,10 +2,10 @@ import { Banknote, Pencil, Plus, Trash2, Truck, Users } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { PayModal } from '@/components/PayModal'
 import { ProductPicker } from '@/components/ProductPicker'
-import { Button, Empty, ErrorBox, Field, IconButton, Input, KV, Loading, Modal, Money, NumInput, PageHeader, RangeFilter, SearchBox, Segmented, Select, Stat, StatGrid, Tag, TextArea, cx, useIsMobile } from '@/components/ui'
+import { Button, Empty, ErrorBox, Field, IconButton, Input, KV, Loading, Modal, Money, NumInput, PageHeader, RangeFilter, useRange, SearchBox, Segmented, Select, Stat, StatGrid, Tag, TextArea, cx, useIsMobile } from '@/components/ui'
 import { VirtualList } from '@/components/virtual'
 import { fetchAll, nums, q as one, rpc } from '@/lib/api'
-import { EPS, dateTimeFmt, iso, makeRange, money, norm, parseInt0, parseNum, roundMoney, variantLabel, type DateRange } from '@/lib/format'
+import { EPS, dateTimeFmt, iso, money, norm, parseInt0, parseNum, roundMoney, variantLabel } from '@/lib/format'
 import { vPrice } from '@/lib/shop'
 import { supabase } from '@/lib/supabase'
 import { run, toast } from '@/lib/toast'
@@ -21,7 +21,7 @@ function useSuppliers() {
 
 export default function PurchasesPage() {
   const mobile = useIsMobile()
-  const [range, setRange] = useState<DateRange>(() => makeRange('month'))
+  const [range, setRange] = useRange('month')
   const [tab, setTab] = useState<'purchases' | 'suppliers'>('purchases')
   const [creating, setCreating] = useState(false)
   const [openPurchase, setOpenPurchase] = useState<Purchase | null>(null)

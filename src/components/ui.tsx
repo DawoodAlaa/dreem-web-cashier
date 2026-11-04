@@ -195,13 +195,15 @@ export function ErrorBox({ text, onRetry }: { text: string; onRetry?: () => void
 
 // ───────── الخانات ─────────
 
-export function Field({ label, hint, error, children, className }: { label?: ReactNode; hint?: ReactNode; error?: ReactNode; children: ReactNode; className?: string }) {
+/** group: الخانة فيها أزرار، فمتبقاش label عشان الضغط على الكلمة ميدوسش أول زرار */
+export function Field({ label, hint, error, children, className, group }: { label?: ReactNode; hint?: ReactNode; error?: ReactNode; children: ReactNode; className?: string; group?: boolean }) {
+  const Box = group ? 'div' : 'label'
   return (
-    <label className={cx('block min-w-0', className)}>
+    <Box className={cx('block min-w-0', className)}>
       {label && <span className="label">{label}</span>}
       {children}
       {error ? <span className="mt-1 block text-xs font-bold text-red">{error}</span> : hint ? <span className="mt-1 block text-xs text-ink-3">{hint}</span> : null}
-    </label>
+    </Box>
   )
 }
 
@@ -320,6 +322,24 @@ export function Segmented<T extends string>({ options, value, onChange }: { opti
 }
 
 // ───────── فلتر الفترة ─────────
+
+/** فترة بتتجدد لوحدها مع اليوم الجديد (عشان الجهاز اللي بيفضل مفتوح بالليل ميفضلش على امبارح) */
+export function useRange(initial: RangeKey) {
+  const [range, setRange] = useState<DateRange>(() => makeRange(initial))
+  useEffect(() => {
+    if (range.key === 'custom' || range.key === 'all') return
+    const check = () => {
+      if (Date.now() >= range.to.getTime()) setRange(makeRange(range.key))
+    }
+    const t = window.setInterval(check, 60_000)
+    document.addEventListener('visibilitychange', check)
+    return () => {
+      clearInterval(t)
+      document.removeEventListener('visibilitychange', check)
+    }
+  }, [range])
+  return [range, setRange] as const
+}
 
 export function RangeFilter({ value, onChange, keys = ['today', 'week', 'month', 'all'] }: { value: DateRange; onChange: (r: DateRange) => void; keys?: RangeKey[] }) {
   const [from, setFrom] = useState(ymd(value.from))

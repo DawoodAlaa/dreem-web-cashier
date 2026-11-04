@@ -2,7 +2,7 @@ import { AlertTriangle, ChevronLeft, HandCoins, Landmark, ListTodo, PackageX, Sh
 import { useEffect, useMemo, useState } from 'react'
 import { actionStyle, iconBg } from '@/components/logStyle'
 import { Empty, ErrorBox, Loading, Money, cx } from '@/components/ui'
-import { fetchAll, nums, rpc } from '@/lib/api'
+import { q, rpc } from '@/lib/api'
 import { useAuth, useCan } from '@/lib/auth'
 import { int, iso, makeRange, money, timeFmt } from '@/lib/format'
 import { canOpen, go, type PageId } from '@/lib/nav'
@@ -14,14 +14,6 @@ import type { ActivityLog, ProfitReport } from '@/lib/types'
 import { useLive } from '@/lib/useLive'
 
 // النهارده: كل حاجة مهمة في شاشة واحدة، وبتتحدث لوحدها لحظة بلحظة (عشان صاحب المحل يتابع من أي مكان)
-
-interface InvRow {
-  id: number
-  total: number
-  user_name: string | null
-  voided: boolean
-  created_at: string
-}
 
 const dayTitle = () =>
   new Intl.DateTimeFormat('ar-EG-u-nu-latn', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Africa/Cairo' }).format(new Date())
@@ -68,11 +60,18 @@ export default function TodayPage() {
   const rk = `${iso(today.from)}:${iso(today.to)}`
   const span = { p_from: iso(today.from), p_to: iso(today.to) }
 
-  const invoices = useLive(canSales ? `today-inv:${rk}` : null, ['invoices'], async () => {
-    const rows = await fetchAll<InvRow>(() =>
-      supabase.from('invoices').select('id, total, user_name, voided, created_at').gte('created_at', span.p_from).lt('created_at', span.p_to).order('id'),
-    )
-    return rows.map((r) => nums(r, ['total']))
+  const sellers = useLive(canSales ? `today-users:${rk}` : null, ['invoices', 'adjustments'], async () => {
+    const rows = (await rpc<{ name: string; count: number; net: number }[]>('invoices_by_user', span)) ?? []
+    return rows
+      .map((r) => ({ name: r.name, count: Number(r.count), total: Number(r.net) }))
+      .filter((r) => r.count > 0)
+      .sort((a, b) => b.total - a.total)
+  })
+  const lastSale = useLive(canSales ? `today-last:${rk}` : null, ['invoices'], async () => {
+    const rows = (await q(
+      supabase.from('invoices').select('created_at').eq('voided', false).gte('created_at', span.p_from).lt('created_at', span.p_to).order('id', { ascending: false }).limit(1),
+    )) as { created_at: string }[]
+    return rows[0]?.created_at ?? null
   })
   const summary = useLive(canSales ? `today-sum:${rk}` : null, ['invoices', 'adjustments'], async () => {
     const r = await rpc<{ count: number; net: number }>('invoices_summary', span)
@@ -99,20 +98,8 @@ export default function TodayPage() {
   })
 
   // مين باع كام النهارده
-  const staff = useMemo(() => {
-    const m = new Map<string, { count: number; total: number }>()
-    for (const r of invoices.data ?? []) {
-      if (r.voided) continue
-      const k = r.user_name || '-'
-      const x = m.get(k) ?? { count: 0, total: 0 }
-      x.count++
-      x.total += r.total
-      m.set(k, x)
-    }
-    return [...m.entries()].sort((a, b) => b[1].total - a[1].total)
-  }, [invoices.data])
-  const lastSale = useMemo(() => (invoices.data ?? []).filter((r) => !r.voided).at(-1)?.created_at ?? null, [invoices.data])
-  const maxStaff = staff[0]?.[1].total || 1
+  const staff = sellers.data ?? []
+  const maxStaff = staff[0]?.total || 1
 
   // المخزون (من الكتالوج اللي متحمّل)
   const views = useShop((s) => s.views)
@@ -160,7 +147,7 @@ export default function TodayPage() {
           <div className="mt-1 text-4xl font-extrabold">{summary.data ? <Money v={summary.data.net} /> : '...'}</div>
           <div className="mt-1 text-sm text-white/85">
             {summary.data ? `${int(summary.data.count)} فاتورة` : ''}
-            {lastSale && ` • آخر بيعة ${ago(lastSale, now)}`}
+            {lastSale.data && ` • آخر بيعة ${ago(lastSale.data, now)}`}
           </div>
         </button>
       )}
@@ -204,20 +191,20 @@ export default function TodayPage() {
       {canSales && (
         <section className="card p-4">
           <div className="mb-2 font-extrabold">مين باع النهارده</div>
-          {invoices.error && !invoices.data ? (
-            <ErrorBox text={invoices.error} onRetry={invoices.reload} />
-          ) : !invoices.data ? (
+          {sellers.error && !sellers.data ? (
+            <ErrorBox text={sellers.error} onRetry={sellers.reload} />
+          ) : !sellers.data ? (
             <Loading />
           ) : staff.length === 0 ? (
             <div className="py-4 text-center text-sm text-ink-3">لسه محدش باع النهارده</div>
           ) : (
             <div className="space-y-3">
-              {staff.map(([name, x]) => (
-                <div key={name}>
+              {staff.map((x) => (
+                <div key={x.name}>
                   <div className="flex items-center justify-between gap-2 text-sm">
                     <span className="flex min-w-0 items-center gap-2 font-bold">
                       <UserRound className="h-4 w-4 shrink-0 text-ink-3" />
-                      <span className="truncate">{name}</span>
+                      <span className="truncate">{x.name}</span>
                       <span className="shrink-0 text-xs font-medium text-ink-3">{int(x.count)} فاتورة</span>
                     </span>
                     <Money v={x.total} className="shrink-0 font-extrabold" />

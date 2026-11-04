@@ -23,7 +23,9 @@ const KINDS: Record<string, { label: string; color: Color }> = {
 export default function CustomersPage() {
   const live = useCustomers()
   const arg = useNav((s) => s.arg)
-  const canEdit = useCan('customers') || useCan('credit')
+  const canCustomers = useCan('customers')
+  const canCredit = useCan('credit')
+  const canEdit = canCustomers || canCredit
   const [q, setQ] = useState('')
   const [debtOnly, setDebtOnly] = useState(false)
   const [adding, setAdding] = useState(false)
@@ -105,7 +107,8 @@ export default function CustomersPage() {
 
 function CustomerPage({ c, onBack }: { c: Customer; onBack: () => void }) {
   const canCollect = useCan('customers')
-  const canEdit = useCan('customers') || useCan('credit')
+  const canCredit = useCan('credit')
+  const canEdit = canCollect || canCredit
   const [paying, setPaying] = useState(false)
   const [editing, setEditing] = useState(false)
   const txns = useLive(`ctx:${c.id}`, ['customer_txns'], async () => {

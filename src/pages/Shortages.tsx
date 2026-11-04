@@ -250,7 +250,7 @@ function AddShortage({ onClose }: { onClose: () => void }) {
             <Input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="مثلاً: شاحن آيفون أصلي" />
           </Field>
         )}
-        <Field label="الحالة">
+        <Field group label="الحالة">
           <Segmented
             value={low}
             onChange={setLow}

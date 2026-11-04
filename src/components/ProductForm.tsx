@@ -32,7 +32,7 @@ export function ProductImage({ url, className, icon }: { url: string | null; cla
 // موبايل أو تابلت (شاشة لمس): نعرض زرار "صوّر" يفتح الكاميرا على طول
 const isTouch = () => typeof window !== 'undefined' && !!window.matchMedia?.('(pointer: coarse)').matches
 
-export function ImagePicker({ value, onChange }: { value: string | null; onChange: (url: string | null) => void }) {
+export function ImagePicker({ value, onChange, onBusy }: { value: string | null; onChange: (url: string | null) => void; onBusy?: (busy: boolean) => void }) {
   const cameraRef = useRef<HTMLInputElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
@@ -42,12 +42,14 @@ export function ImagePicker({ value, onChange }: { value: string | null; onChang
     e.target.value = ''
     if (!f) return
     setBusy(true)
+    onBusy?.(true)
     try {
       onChange(await uploadProductImage(f))
     } catch (err) {
       toastError(err)
     }
     setBusy(false)
+    onBusy?.(false)
   }
   const spin = busy ? <Spinner className="h-4 w-4" /> : null
   return (
@@ -123,6 +125,7 @@ export function ProductForm({
       : [emptyRow('1')],
   )
   const [busy, setBusy] = useState(false)
+  const [uploading, setUploading] = useState(false)
 
   const sellN = parseNum(sell)
   const minN = parseNum(minSell)
@@ -182,8 +185,8 @@ export function ProductForm({
       title={p ? 'تعديل منتج' : 'إضافة منتج'}
       footer={
         <div className="flex gap-2">
-          <Button className="flex-1" loading={busy} onClick={save} disabled={!name.trim() || !sellN || !!minErr || variantsErr}>
-            حفظ
+          <Button className="flex-1" loading={busy} onClick={save} disabled={uploading || !name.trim() || !sellN || !!minErr || variantsErr}>
+            {uploading ? 'بيرفع الصورة...' : 'حفظ'}
           </Button>
           <Button variant="outline" onClick={onClose}>
             إلغاء
@@ -206,8 +209,8 @@ export function ProductForm({
             <Input value={name} onChange={(e) => setName(e.target.value)} autoFocus={!p} />
           </Field>
         </div>
-        <Field label="الصورة">
-          <ImagePicker value={image} onChange={setImage} />
+        <Field group label="الصورة">
+          <ImagePicker value={image} onChange={setImage} onBusy={setUploading} />
         </Field>
         <div className={cx('grid gap-3', showCost ? 'grid-cols-3' : 'grid-cols-2')}>
           {showCost && (

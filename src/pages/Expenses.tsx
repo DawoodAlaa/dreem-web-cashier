@@ -1,11 +1,11 @@
 import { AlertTriangle, Plus, Trash2, Wallet } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { LossForm } from '@/components/LossForm'
-import { Button, Empty, ErrorBox, Field, Input, Loading, Modal, Money, NumInput, PageHeader, RangeFilter, SearchBox, Segmented, Select, Stat, StatGrid, Tag, TextArea, confirmDialog } from '@/components/ui'
+import { Button, Empty, ErrorBox, Field, Input, Loading, Modal, Money, NumInput, PageHeader, RangeFilter, useRange, SearchBox, Segmented, Select, Stat, StatGrid, Tag, TextArea, confirmDialog } from '@/components/ui'
 import { VirtualList } from '@/components/virtual'
 import { fetchAll, nums, rpc } from '@/lib/api'
 import { useCan } from '@/lib/auth'
-import { dateFmt, dateTimeFmt, fromYmd, int, iso, makeRange, money, norm, parseNum, ymd, type DateRange } from '@/lib/format'
+import { dateFmt, dateTimeFmt, fromYmd, int, iso, money, norm, parseNum, ymd } from '@/lib/format'
 import { expenseCategories, useShop } from '@/lib/shop'
 import { supabase } from '@/lib/supabase'
 import { run } from '@/lib/toast'
@@ -17,7 +17,7 @@ export default function ExpensesPage() {
   const canStock = useCan('stock')
   const showCost = useCan('reports')
   const canUndo = useCan('undo')
-  const [range, setRange] = useState<DateRange>(() => makeRange('month'))
+  const [range, setRange] = useRange('month')
   const [tab, setTab] = useState<'expenses' | 'losses'>('expenses')
   const [q, setQ] = useState('')
   const [addExp, setAddExp] = useState(false)
@@ -201,7 +201,7 @@ function ExpenseForm({ onClose }: { onClose: () => void }) {
       size="sm"
       title="مصروف جديد"
       footer={
-        <Button block loading={busy} disabled={!title.trim() || !parseNum(amount)} onClick={save}>
+        <Button block loading={busy} disabled={!title.trim() || !parseNum(amount) || !date} onClick={save}>
           تسجيل المصروف
         </Button>
       }

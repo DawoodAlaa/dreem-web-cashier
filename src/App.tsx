@@ -1,5 +1,6 @@
 import { RefreshCw } from 'lucide-react'
 import { Suspense, lazy, useEffect, type ComponentType } from 'react'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { Layout } from './components/Layout'
 import { DialogHost, Loading, Toasts } from './components/ui'
 import { initAuth, useAuth } from './lib/auth'
@@ -64,9 +65,11 @@ function Main() {
   }
   const Page = pages[page]
   return (
-    <Suspense fallback={<Loading />}>
-      <Page key={page} />
-    </Suspense>
+    <ErrorBoundary resetKey={page}>
+      <Suspense fallback={<Loading />}>
+        <Page key={page} />
+      </Suspense>
+    </ErrorBoundary>
   )
 }
 
@@ -86,7 +89,7 @@ export default function App() {
     )
   return (
     <>
-      {body}
+      <ErrorBoundary>{body}</ErrorBoundary>
       <UpdateBar />
       <Toasts />
       <DialogHost />

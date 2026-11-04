@@ -83,7 +83,9 @@ export function CustomerPicker({ open, onClose, value, onPick }: { open: boolean
   const { data } = useCustomers()
   const [q, setQ] = useState('')
   const [adding, setAdding] = useState(false)
-  const canAdd = useCan('customers') || useCan('credit')
+  const canCustomers = useCan('customers')
+  const canCredit = useCan('credit')
+  const canAdd = canCustomers || canCredit
   const list = useMemo(() => {
     const n = norm(q)
     const all = data ?? []

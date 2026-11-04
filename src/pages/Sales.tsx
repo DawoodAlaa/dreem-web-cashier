@@ -459,7 +459,7 @@ function AddToCart({ pv: initial, onClose, onSellNow }: { pv: ProductView; onClo
         </div>
 
         {pv.hasVariants && (
-          <Field label="النوع">
+          <Field group label="النوع">
             <div className="flex flex-wrap gap-2">
               {pv.vs.map((x) => {
                 const ok = canSellVariant(x) || (pv.vs.length === 1 && (extra == null || extra > 0))
@@ -488,7 +488,7 @@ function AddToCart({ pv: initial, onClose, onSellNow }: { pv: ProductView; onClo
         )}
 
         <div className="grid grid-cols-2 gap-3">
-          <Field label="الكمية">
+          <Field group label="الكمية">
             <div className="flex items-center gap-1">
               <IconButton label="أقل" className="border border-line" onClick={() => setQty(String(Math.max(1, qn - 1)))}>
                 <Minus className="h-5 w-5" />
@@ -651,6 +651,27 @@ function MobileCartBar({ onOpen }: { onOpen: () => void }) {
   )
 }
 
+/** خانة الخصم: النص بيفضل زي ما اتكتب عشان الكسور زي 2.5 تتكتب صح */
+function DiscountInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const [text, setText] = useState(value ? String(value) : '')
+  useEffect(() => {
+    // اتغير من برة (تفريغ السلة أو فاتورة معلقة)
+    if ((parseNum(text) ?? 0) !== value) setText(value ? String(value) : '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value])
+  return (
+    <NumInput
+      className="h-10 lg:h-10"
+      placeholder="0"
+      value={text}
+      onChange={(e) => {
+        setText(e.target.value)
+        onChange(parseNum(e.target.value) ?? 0)
+      }}
+    />
+  )
+}
+
 function CartPanel({ inSheet, onDone }: { inSheet?: boolean; onDone?: () => void }) {
   const s = useCart()
   const t = totals(s)
@@ -791,12 +812,7 @@ function CartPanel({ inSheet, onDone }: { inSheet?: boolean; onDone?: () => void
                 ]}
               />
             </div>
-            <NumInput
-              className="h-10 lg:h-10"
-              placeholder="0"
-              value={s.discValue ? String(s.discValue) : ''}
-              onChange={(e) => cart.setDiscount(s.discMode, parseNum(e.target.value) ?? 0)}
-            />
+            <DiscountInput value={s.discValue} onChange={(v) => cart.setDiscount(s.discMode, v)} />
           </div>
         )}
 
@@ -871,7 +887,8 @@ function Checkout({ canCredit, customerName, onClose, onDone }: { canCredit: boo
   const change = roundMoney(pn - t.total)
   const debt = roundMoney(t.total - pn)
   let err: string | null = null
-  if (pn < 0) err = 'المبلغ المدفوع غلط'
+  if (t.discountTooBig) err = `الخصم كبير: الإجمالي مينفعش يقل عن ${money(t.minTotal)}`
+  else if (pn < 0) err = 'المبلغ المدفوع غلط'
   else if (debt > EPS && !canCredit) err = 'مش مسموحلك تبيع آجل. لازم العميل يدفع الإجمالي كله'
   else if (debt > EPS && !s.customerId) err = 'اختار العميل عشان الباقي يتسجل عليه آجل'
 

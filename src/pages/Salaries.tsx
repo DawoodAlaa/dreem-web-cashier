@@ -1,10 +1,10 @@
 import { ArrowDownToLine, HandCoins, Pencil, UserRound, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { Button, Empty, ErrorBox, Field, Input, Loading, Modal, Money, NumInput, PageHeader, RangeFilter, Select, Stat, StatGrid, Tag, cx } from '@/components/ui'
+import { Button, Empty, ErrorBox, Field, Input, Loading, Modal, Money, NumInput, PageHeader, RangeFilter, useRange, Select, Stat, StatGrid, Tag, cx } from '@/components/ui'
 import { VirtualList } from '@/components/virtual'
 import { fetchAll, nums, q as one, rpc } from '@/lib/api'
 import { useAuth, useCan } from '@/lib/auth'
-import { EPS, dateTimeFmt, iso, makeRange, money, parseNum, type DateRange } from '@/lib/format'
+import { EPS, dateTimeFmt, iso, makeRange, money, parseNum } from '@/lib/format'
 import { supabase } from '@/lib/supabase'
 import { run } from '@/lib/toast'
 import type { Profile } from '@/lib/types'
@@ -42,7 +42,7 @@ export default function SalariesPage() {
   const canManage = useCan('salaries')
   const canSettings = useCan('settings')
   const daily = useSalaryDaily()
-  const [range, setRange] = useState<DateRange>(() => makeRange('month'))
+  const [range, setRange] = useRange('month')
   const [dlg, setDlg] = useState<'in' | 'out' | 'daily' | null>(null)
   const [who, setWho] = useState<string | null>(null)
   const balance = useSalaryBalance()

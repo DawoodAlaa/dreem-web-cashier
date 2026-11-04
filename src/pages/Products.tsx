@@ -224,7 +224,7 @@ export default function ProductsPage() {
       )}
 
       {selecting && (
-        <div className="above-nav fixed inset-x-0 z-30 border-t border-line bg-white/95 shadow-sheet backdrop-blur lg:right-[248px]">
+        <div className="above-nav fixed inset-x-0 z-30 border-t border-line bg-white/95 shadow-sheet backdrop-blur lg:right-[248px] tab:right-[92px]">
           <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-2 px-3 py-3 lg:px-6">
             <span className="text-[15px] font-extrabold">
               <span className="num">{sel.size}</span> محدد
@@ -489,6 +489,7 @@ function QuickAdd({ defaultCategory, onClose }: { defaultCategory: number | null
   const [uncounted, setUncounted] = useState(false)
   const [rows, setRows] = useState([{ name: '', qty: '1' }])
   const [busy, setBusy] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const items = rows.filter((r) => r.name.trim()).map((r) => ({ name: r.name.trim(), qty: parseInt0(r.qty) ?? 0 }))
   const sellN = parseNum(sell)
   const save = async () => {
@@ -523,8 +524,8 @@ function QuickAdd({ defaultCategory, onClose }: { defaultCategory: number | null
       size="lg"
       title="إضافة سريعة"
       footer={
-        <Button block loading={busy} disabled={!items.length || !sellN} onClick={save}>
-          إضافة {items.length} منتج
+        <Button block loading={busy} disabled={uploading || !items.length || !sellN} onClick={save}>
+          {uploading ? 'بيرفع الصورة...' : `إضافة ${items.length} منتج`}
         </Button>
       }
     >
@@ -557,8 +558,8 @@ function QuickAdd({ defaultCategory, onClose }: { defaultCategory: number | null
             </Field>
           )}
         </div>
-        <Field label="صورة (للكل)">
-          <ImagePicker value={image} onChange={setImage} />
+        <Field group label="صورة (للكل)">
+          <ImagePicker value={image} onChange={setImage} onBusy={setUploading} />
         </Field>
         {track && <Checkbox checked={uncounted} onChange={setUncounted} label="الكمية هتتجرد بعدين" />}
         <div className="space-y-2">
@@ -611,6 +612,7 @@ function BuyUsed({ onClose }: { onClose: () => void }) {
   })
   const [image, setImage] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setF((s) => ({ ...s, [k]: e.target.value }))
   const save = async () => {
     setBusy(true)
@@ -644,8 +646,8 @@ function BuyUsed({ onClose }: { onClose: () => void }) {
       size="lg"
       title="شراء موبايل مستعمل"
       footer={
-        <Button block loading={busy} disabled={!f.device_name.trim() || !f.seller_name.trim() || !parseNum(f.price) || !parseNum(f.sell)} onClick={save}>
-          تسجيل الشراء (هيتخصم من الدرج)
+        <Button block loading={busy} disabled={uploading || !f.device_name.trim() || !f.seller_name.trim() || !parseNum(f.price) || !parseNum(f.sell)} onClick={save}>
+          {uploading ? 'بيرفع الصورة...' : 'تسجيل الشراء (هيتخصم من الدرج)'}
         </Button>
       }
     >
@@ -697,8 +699,8 @@ function BuyUsed({ onClose }: { onClose: () => void }) {
             </Field>
           </div>
         </div>
-        <Field label="صورة الجهاز">
-          <ImagePicker value={image} onChange={setImage} />
+        <Field group label="صورة الجهاز">
+          <ImagePicker value={image} onChange={setImage} onBusy={setUploading} />
         </Field>
       </div>
     </Modal>

@@ -1,11 +1,11 @@
 import { History, Undo2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { actionStyle, iconBg } from '@/components/logStyle'
-import { Button, Empty, ErrorBox, Loading, Modal, PageHeader, RangeFilter, SearchBox, Select, Tag, confirmDialog, cx } from '@/components/ui'
+import { Button, Empty, ErrorBox, Loading, Modal, PageHeader, RangeFilter, useRange, SearchBox, Select, Tag, confirmDialog, cx } from '@/components/ui'
 import { LoadMore, VirtualList } from '@/components/virtual'
 import { rpc } from '@/lib/api'
 import { useCan } from '@/lib/auth'
-import { dateTimeFmt, iso, makeRange, type DateRange } from '@/lib/format'
+import { dateTimeFmt, iso } from '@/lib/format'
 import { supabase } from '@/lib/supabase'
 import { run } from '@/lib/toast'
 import type { ActivityLog } from '@/lib/types'
@@ -13,7 +13,7 @@ import { safeSearch, useDebounced, usePaged } from '@/lib/usePaged'
 import { useLive } from '@/lib/useLive'
 
 export default function LogPage() {
-  const [range, setRange] = useState<DateRange>(() => makeRange('today'))
+  const [range, setRange] = useRange('today')
   const [section, setSection] = useState('')
   const [type, setType] = useState('')
   const [user, setUser] = useState('')

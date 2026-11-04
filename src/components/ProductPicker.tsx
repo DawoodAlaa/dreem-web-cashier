@@ -41,6 +41,11 @@ export function ProductPicker({
     return out
   }, [views, q, filter])
 
+  const close = () => {
+    setChosen(null)
+    onClose()
+  }
+
   const pick = (pv: ProductView) => {
     if (pickVariant && pv.vs.length > 1) return setChosen(pv)
     onPick(pv, pv.vs[0])
@@ -48,7 +53,7 @@ export function ProductPicker({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title={chosen ? chosen.p.name : title}>
+    <Modal open={open} onClose={close} title={chosen ? chosen.p.name : title}>
       {chosen ? (
         <div className="space-y-2">
           <div className="text-sm font-bold text-ink-3">اختار اللون</div>
