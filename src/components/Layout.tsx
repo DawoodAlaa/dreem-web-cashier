@@ -365,6 +365,49 @@ function BottomNav({ onMore }: { onMore: () => void }) {
   )
 }
 
+// ───────── الشريط الرفيع على الجنب (التابلت) ─────────
+
+// أهم الصفحات بس، وبناخد أول 6 مسموحة للمستخدم. الباقي في "المزيد"
+const RAIL: PageId[] = ['sales', 'today', 'invoices', 'products', 'shortages', 'reports', 'drawer', 'customers', 'expenses']
+
+function SideRail({ onMore }: { onMore: () => void }) {
+  const profile = useAuth((s) => s.profile)
+  const page = useNav((s) => s.page)
+  const shortages = useShortageCount()
+  useTrackStock()
+  const tabs = RAIL.filter((id) => canOpen(id, profile)).slice(0, 6)
+  const inMore = !tabs.includes(page)
+  const item = (on: boolean) => cx('relative flex w-full flex-col items-center gap-1 rounded-btn py-2.5 text-[13px] font-bold transition-colors', on ? 'bg-primary text-white' : 'text-ink-2 active:bg-bg')
+  return (
+    <aside className="fixed inset-y-0 right-0 z-30 hidden w-[92px] flex-col border-l border-line bg-white tab:flex">
+      <div className="flex h-16 shrink-0 items-center justify-center border-b border-line-soft">
+        <div className="flex h-10 w-10 items-center justify-center rounded-btn bg-primary text-white">
+          <ShoppingCart className="h-5 w-5" />
+        </div>
+      </div>
+      <nav className="flex-1 space-y-1 overflow-y-auto p-2">
+        {tabs.map((id) => {
+          const I = ICONS[id]
+          const on = id === page
+          return (
+            <button key={id} type="button" className={item(on)} onClick={() => go(id)}>
+              <I className="h-6 w-6" />
+              {SHORT[id] ?? pageLabel(id)}
+              {id === 'shortages' && shortages > 0 && (
+                <span className="num absolute left-2 top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red px-1 text-[11px] font-extrabold text-white">{shortages}</span>
+              )}
+            </button>
+          )
+        })}
+        <button type="button" className={item(inMore)} onClick={onMore}>
+          <Menu className="h-6 w-6" />
+          <span className="max-w-full truncate px-1">{inMore ? pageLabel(page) : 'المزيد'}</span>
+        </button>
+      </nav>
+    </aside>
+  )
+}
+
 function QuickSearch() {
   const [q, setQ] = useState('')
   return (
@@ -390,9 +433,9 @@ export function Layout({ children }: { children: ReactNode }) {
   const setMenu = (v: boolean) => useNav.setState({ menuOpen: v })
 
   return (
-    <div className="min-h-[100dvh] lg:pr-[248px]">
+    <div className="min-h-[100dvh] lg:pr-[248px] tab:pr-[92px]">
       {/* القايمة الجانبية (الكمبيوتر) */}
-      <aside className="fixed inset-y-0 right-0 z-30 hidden w-[248px] flex-col border-l border-line bg-white lg:flex">
+      <aside className="fixed inset-y-0 right-0 z-30 hidden w-[248px] flex-col border-l border-line bg-white lg:flex tab:hidden">
         <div className="flex h-16 shrink-0 items-center gap-3 border-b border-line-soft px-4">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-btn bg-primary text-white">
             <ShoppingCart className="h-5 w-5" />
@@ -404,11 +447,13 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
+      <SideRail onMore={() => setMenu(true)} />
+
       {/* الشريط اللي فوق */}
       <header className="pt-safe sticky top-0 z-20 border-b border-line bg-white/95 backdrop-blur">
         <div className="flex h-14 items-center gap-2 px-2 lg:h-16 lg:px-5">
-          <div className="min-w-0 flex-1 truncate px-2 text-lg font-extrabold lg:hidden">{pageLabel(page)}</div>
-          <div className="hidden flex-1 items-center gap-4 lg:flex">
+          <div className="min-w-0 flex-1 truncate px-2 text-lg font-extrabold lg:hidden tab:block">{pageLabel(page)}</div>
+          <div className="hidden flex-1 items-center gap-4 lg:flex tab:hidden">
             <span className="text-sm font-bold text-ink-3">كاشير الموبايلات</span>
             {profile && canOpen('sales', profile) && <QuickSearch />}
           </div>
@@ -430,7 +475,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
       {/* القايمة الجانبية (الموبايل) */}
       {menuOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
+        <div className="fixed inset-0 z-50 lg:hidden tab:block">
           <div className="anim-fade absolute inset-0 bg-ink/40" onClick={() => setMenu(false)} />
           <div className="anim-drawer pt-safe pb-safe absolute inset-y-0 right-0 flex w-[82%] max-w-[300px] flex-col bg-white shadow-xl">
             <div className="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-line-soft px-4">

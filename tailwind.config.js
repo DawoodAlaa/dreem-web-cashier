@@ -19,7 +19,8 @@ export default {
       },
       borderRadius: { card: '16px', btn: '12px' },
       boxShadow: { card: '0 1px 2px rgba(15,26,58,.04), 0 1px 1px rgba(15,26,58,.02)', sheet: '0 -8px 30px rgba(15,26,58,.12)' },
-      screens: { lg: '1000px' },
+      // tab: التابلت بالعرض (شاشة لمس كبيرة). لازم تفضل بعد lg عشان تغلبها
+      screens: { lg: '1000px', tab: { raw: '(pointer: coarse) and (min-width: 1000px)' } },
     },
   },
   plugins: [],

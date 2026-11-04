@@ -41,6 +41,7 @@ export default function SalesPage() {
   const byId = useShop((s) => s.byId)
   const parts = useShop((s) => s.parts)
   const canAdd = useCan('products')
+  const track = useTrackStock()
   const mobile = useIsMobile()
   const salesQuery = useNav((s) => s.salesQuery)
 
@@ -97,21 +98,22 @@ export default function SalesPage() {
   const catOptions = [
     { value: ALL, label: 'الكل', count: views.length },
     ...(offerViews.length ? [{ value: OFFERS, label: <><Gift className="h-4 w-4" />العروض</>, count: offerViews.length }] : []),
-    ...categories.map((c) => ({ value: c.id, label: <><CategoryIcon icon={c.icon} className="h-4 w-4" />{c.name}</>, count: counts.get(c.id) ?? 0 })),
+    // الأصناف الفاضية مبتظهرش هنا عشان الشاشة تفضل بسيطة
+    ...categories.filter((c) => counts.get(c.id) || c.id === cat).map((c) => ({ value: c.id, label: <><CategoryIcon icon={c.icon} className="h-4 w-4" />{c.name}</>, count: counts.get(c.id) ?? 0 })),
   ]
 
   return (
     <div className="lg:flex lg:gap-5">
       <div className="min-w-0 flex-1 pb-24 lg:pb-0">
         {/* البحث والأصناف: ثابتين فوق وإنت بتنزل (الموبايل) */}
-        <div className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-10 -mx-3 mb-3 space-y-2 bg-bg/95 px-3 pb-2 pt-1 backdrop-blur lg:static lg:mx-0 lg:space-y-3 lg:bg-transparent lg:p-0 lg:backdrop-blur-none">
+        <div className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-10 -mx-3 mb-3 space-y-2 bg-bg/95 px-3 pb-2 pt-1 backdrop-blur lg:static lg:mx-0 lg:space-y-3 lg:bg-transparent lg:p-0 lg:backdrop-blur-none tab:sticky tab:top-16 tab:space-y-2 tab:bg-bg/95 tab:py-2 tab:backdrop-blur">
           <div className="flex gap-2">
             <SearchBox value={q} onChange={setQ} placeholder={mobile ? "بحث" : "بحث باسم المنتج"} className="min-w-0 flex-1" />
             <Select value={sort} onChange={(e) => setSort(e.target.value as Sort)} className="w-[5.75rem] flex-none px-2 lg:w-[8.5rem] lg:px-3" aria-label="الترتيب">
               <option value="new">الأحدث</option>
               <option value="name">الاسم</option>
               <option value="price">السعر</option>
-              <option value="qty">الكمية</option>
+              {track && <option value="qty">الكمية</option>}
             </Select>
             <IconButton label={view === 'list' ? 'عرض كروت' : 'عرض قايمة'} className="h-11 w-11 shrink-0 border border-line bg-white lg:h-12 lg:w-12" onClick={() => setView(view === 'list' ? 'grid' : 'list')}>
               {view === 'list' ? <LayoutGrid className="h-5 w-5" /> : <List className="h-5 w-5" />}
@@ -152,7 +154,7 @@ export default function SalesPage() {
 
       {/* السلة: عمود على الكمبيوتر، وشريط تحت على الموبايل */}
       {!mobile ? (
-        <aside className="sticky top-[88px] h-[calc(100dvh-112px)] w-[380px] shrink-0 xl:w-[420px]">
+        <aside className="sticky top-[88px] h-[calc(100dvh-112px)] w-[380px] shrink-0 xl:w-[420px] tab:w-[340px]">
           <CartPanel />
         </aside>
       ) : (
@@ -267,7 +269,7 @@ const SaleCard = memo(function SaleCard({ pv, onPick }: { pv: ProductView; onPic
         )}
       >
         <div className="relative h-[110px] w-full shrink-0 lg:h-[128px]">
-          <ProductImage url={pv.p.image_url} className="h-full w-full" icon={<CategoryIcon icon={icon} className="h-10 w-10 opacity-40" />} />
+          <ProductImage url={pv.p.image_url} className="h-full w-full !bg-white !object-contain" icon={<CategoryIcon icon={icon} className="h-10 w-10 opacity-40" />} />
           <div className="absolute right-1.5 top-1.5 flex flex-col items-start gap-1">
             {pv.p.is_used && <Tag color="purple">مستعمل</Tag>}
             <FlagTag flag={flag} className="shadow-card" />
@@ -278,7 +280,7 @@ const SaleCard = memo(function SaleCard({ pv, onPick }: { pv: ProductView; onPic
           <div className="mt-auto space-y-0.5">
             <div className="flex items-baseline justify-between gap-1">
               <PriceText range={range} big />
-              {range.min + EPS < range.low && <Money v={range.min} currency={false} className="text-xs font-bold text-orange" />}
+              {range.min + EPS < range.low && <span className="text-xs font-bold text-orange">أقل <Money v={range.min} currency={false} /></span>}
             </div>
             <div className="truncate text-xs font-bold">{qty}</div>
           </div>
