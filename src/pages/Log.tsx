@@ -16,12 +16,13 @@ export default function LogPage() {
   const [range, setRange] = useState<DateRange>(() => makeRange('today'))
   const [section, setSection] = useState('')
   const [type, setType] = useState('')
+  const [user, setUser] = useState('')
   const [q, setQ] = useState('')
   const [open, setOpen] = useState<ActivityLog | null>(null)
   const search = useDebounced(q)
   const rk = `${iso(range.from)}:${iso(range.to)}`
   const paged = usePaged<ActivityLog>(
-    `log:${rk}:${section}:${type}:${search}`,
+    `log:${rk}:${section}:${type}:${user}:${search}`,
     ['activity_logs'],
     async () => {
       let qb = supabase
@@ -31,6 +32,7 @@ export default function LogPage() {
         .lt('created_at', iso(range.to))
       if (section) qb = qb.eq('section', section)
       if (type) qb = qb.eq('title', type)
+      if (user) qb = qb.eq('user_name', user)
       const s = safeSearch(search)
       if (s) qb = qb.or(`title.ilike.*${s}*,description.ilike.*${s}*,user_name.ilike.*${s}*`)
       return { q: qb.order('id', { ascending: false }) }
@@ -41,6 +43,8 @@ export default function LogPage() {
   // الأقسام وأنواع العمليات في الفترة كلها (من السيرفر، مش من اللي اتحمّل بس)
   const facets = useLive(`logfacets:${rk}`, ['activity_logs'], async () => (await rpc<{ section: string; title: string; n: number }[]>('log_facets', { p_from: iso(range.from), p_to: iso(range.to) })) ?? [])
   const fx = facets.data ?? []
+  const logUsers = useLive(`logusers:${rk}`, ['activity_logs'], async () => (await rpc<{ name: string; n: number }[]>('log_users', { p_from: iso(range.from), p_to: iso(range.to) })) ?? [])
+  const users = logUsers.data ?? []
   const sections = useMemo(() => [...new Set(fx.map((x) => x.section))].sort(), [fx])
   const types = useMemo(() => [...new Set(fx.filter((x) => !section || x.section === section).map((x) => x.title))].sort(), [fx, section])
   const list = paged.rows
@@ -71,6 +75,17 @@ export default function LogPage() {
               <option key={s}>{s}</option>
             ))}
           </Select>
+          {(users.length > 1 || user) && (
+            <Select value={user} onChange={(e) => setUser(e.target.value)} className="w-auto min-w-[9rem] flex-1 sm:flex-none" aria-label="الموظف">
+              <option value="">كل الموظفين</option>
+              {user && !users.some((u) => u.name === user) && <option value={user}>{user}</option>}
+              {users.map((u) => (
+                <option key={u.name} value={u.name}>
+                  {u.name} ({u.n})
+                </option>
+              ))}
+            </Select>
+          )}
           <SearchBox value={q} onChange={setQ} className="min-w-[200px] flex-[2]" />
         </div>
       </div>
@@ -80,7 +95,7 @@ export default function LogPage() {
       ) : paged.loading ? (
         <Loading />
       ) : list.length === 0 ? (
-        <Empty icon={<History />} text={section || type || search ? 'مفيش عمليات مطابقة' : 'مفيش عمليات في الفترة دي'} />
+        <Empty icon={<History />} text={section || type || user || search ? 'مفيش عمليات مطابقة' : 'مفيش عمليات في الفترة دي'} />
       ) : (
         <>
         <VirtualList

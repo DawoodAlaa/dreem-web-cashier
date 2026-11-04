@@ -1,7 +1,7 @@
 import { ArrowRight, FileText, Plus, RotateCcw, Repeat, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { ProductPicker } from '@/components/ProductPicker'
-import { Button, Checkbox, Chips, Empty, ErrorBox, Field, IconButton, KV, Loading, Modal, Money, NumInput, PageHeader, RangeFilter, SearchBox, Stat, StatGrid, Tag, TextArea, cx, useIsMobile, type Color } from '@/components/ui'
+import { Button, Checkbox, Chips, Empty, ErrorBox, Field, IconButton, KV, Loading, Modal, Money, NumInput, PageHeader, RangeFilter, SearchBox, Select, Stat, StatGrid, Tag, TextArea, cx, useIsMobile, type Color } from '@/components/ui'
 import { LoadMore, VirtualList } from '@/components/virtual'
 import { nums, q as one, rpc } from '@/lib/api'
 import { useCan } from '@/lib/auth'
@@ -48,13 +48,14 @@ export function invoiceNet(inv: Invoice) {
 const SELECT = '*, invoice_items(*), adjustments(*, adjustment_items(*))'
 
 /** طلب الفواتير بالفلاتر (بيتنفذ على السيرفر صفحة صفحة) */
-async function buildInvoicesQuery(range: DateRange, status: Status, search: string) {
+async function buildInvoicesQuery(range: DateRange, status: Status, search: string, user: string) {
   const extra = status === 'done' ? ', live:adjustments(id)' : status === 'return' || status === 'exchange' ? ', f:adjustments!inner(id)' : ''
   let qb = supabase
     .from('invoices')
     .select(SELECT + extra, { count: 'exact' })
     .gte('created_at', iso(range.from))
     .lt('created_at', iso(range.to))
+  if (user) qb = qb.eq('user_name', user)
   if (status === 'voided') qb = qb.eq('voided', true)
   else if (status === 'done') qb = qb.eq('voided', false).eq('live.voided', false).is('live', null)
   else if (status === 'return' || status === 'exchange') qb = qb.eq('voided', false).eq('f.kind', status).eq('f.voided', false)
@@ -74,18 +75,25 @@ export default function InvoicesPage() {
   const arg = useNav((s) => s.arg)
   const [range, setRange] = useState<DateRange>(() => makeRange('today'))
   const [status, setStatus] = useState<Status>('all')
+  const [user, setUser] = useState('')
   const [q, setQ] = useState('')
   const search = useDebounced(q)
   const rk = `${iso(range.from)}:${iso(range.to)}`
-  const paged = usePaged<Invoice>(`inv:${rk}:${status}:${search}`, ['invoices', 'adjustments'], () => buildInvoicesQuery(range, status, search), fixInvoice, 50)
+  const paged = usePaged<Invoice>(`inv:${rk}:${status}:${user}:${search}`, ['invoices', 'adjustments'], () => buildInvoicesQuery(range, status, search, user), fixInvoice, 50)
   const summary = useLive(`invsum:${rk}`, ['invoices', 'adjustments'], async () => {
     const j = await rpc<{ count: number; voided: number; net: number }>('invoices_summary', { p_from: iso(range.from), p_to: iso(range.to) })
     return { count: Number(j.count), voided: Number(j.voided), net: Number(j.net) }
   })
+  // مبيعات كل موظف في الفترة (من السيرفر، مش من اللي اتحمّل بس)
+  const byUser = useLive(`invusers:${rk}`, ['invoices', 'adjustments'], async () => {
+    const rows = (await rpc<{ name: string; count: number; voided: number; net: number }[]>('invoices_by_user', { p_from: iso(range.from), p_to: iso(range.to) })) ?? []
+    return rows.map((r) => ({ name: r.name, count: Number(r.count), voided: Number(r.voided), net: Number(r.net) }))
+  })
 
   const list = paged.rows
-  const filtered = status !== 'all' || !!search.trim()
-  const sum = summary.data
+  const filtered = status !== 'all' || !!user || !!search.trim()
+  const users = byUser.data ?? []
+  const sum = !user ? summary.data : byUser.data && (users.find((u) => u.name === user) ?? { count: 0, voided: 0, net: 0 })
   const selectedId = arg ? Number(arg) : null
   const selected = selectedId ? (list.find((i) => i.id === selectedId) ?? null) : null
 
@@ -111,7 +119,20 @@ export default function InvoicesPage() {
             { value: 'voided', label: 'ملغاة' },
           ]}
         />
-        <SearchBox value={q} onChange={setQ} placeholder="بحث برقم الفاتورة أو اسم العميل أو المنتج" />
+        <div className="flex gap-2">
+          <SearchBox value={q} onChange={setQ} placeholder={mobile ? "بحث" : "بحث برقم الفاتورة أو اسم العميل أو المنتج"} className="min-w-0 flex-1" />
+          {(users.length > 1 || user) && (
+            <Select value={user} onChange={(e) => setUser(e.target.value)} className="w-[9.5rem] flex-none lg:w-[12rem]" aria-label="الموظف">
+              <option value="">كل الموظفين</option>
+              {user && !users.some((u) => u.name === user) && <option value={user}>{user}</option>}
+              {users.map((u) => (
+                <option key={u.name} value={u.name}>
+                  {u.name} ({u.count})
+                </option>
+              ))}
+            </Select>
+          )}
+        </div>
       </div>
       <StatGrid cols={3}>
         <Stat label="عدد الفواتير" value={sum ? sum.count : '...'} color="primary" sub={sum?.voided ? `+ ${sum.voided} ملغاة` : undefined} />
