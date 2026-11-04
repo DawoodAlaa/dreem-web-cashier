@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Button, Checkbox, Empty, Field, Input, Loading, Modal, PageHeader, Tag, confirmDialog, cx } from '@/components/ui'
 import { q as one, rpc } from '@/lib/api'
 import { PERM_LABELS, createMember, useAuth } from '@/lib/auth'
+import { pagesFor } from '@/lib/nav'
 import { supabase } from '@/lib/supabase'
 import { run, toast } from '@/lib/toast'
 import type { Perm, Profile } from '@/lib/types'
@@ -90,6 +91,7 @@ export default function UsersPage() {
 function MemberCard({ m, isMe, onPerms, onPassword }: { m: Profile; isMe?: boolean; onPerms: () => void; onPassword: () => void }) {
   const owner = m.role === 'owner'
   const count = ALL_PERMS.filter((p) => m.perms?.[p]).length
+  const hidden = pagesFor(m.perms ?? {}).filter((p) => m.perms?.hide?.includes(p.id)).length
   return (
     <div className="card flex items-center gap-3 p-3">
       <span className={cx('flex h-11 w-11 shrink-0 items-center justify-center rounded-full', owner ? 'bg-primary text-white' : m.active ? 'bg-green-light text-green' : 'bg-orange-light text-orange')}>
@@ -101,7 +103,7 @@ function MemberCard({ m, isMe, onPerms, onPassword }: { m: Profile; isMe?: boole
           {isMe && <Tag color="primary">أنت</Tag>}
         </div>
         <div className="truncate text-xs text-ink-3">
-          <span dir="ltr">{m.username}</span> • {owner ? 'المدير (كل الصلاحيات)' : m.active ? `${count} صلاحية` : 'مستني التفعيل / موقوف'}
+          <span dir="ltr">{m.username}</span> • {owner ? 'المدير (كل الصلاحيات)' : m.active ? `${count} صلاحية${hidden ? ` • ${hidden} قسم مخفي` : ''}` : 'مستني التفعيل / موقوف'}
         </div>
       </div>
       {!owner && (
@@ -118,10 +120,12 @@ function MemberCard({ m, isMe, onPerms, onPassword }: { m: Profile; isMe?: boole
   )
 }
 
-/** الصلاحيات الجاهزة والقايمة كلها */
-function PermsPicker({ perms, onChange }: { perms: Record<Perm, boolean>; onChange: (p: Record<Perm, boolean>) => void }) {
+/** الصلاحيات الجاهزة والقايمة كلها، وتحتها الأقسام اللي هتظهر للموظف */
+function PermsPicker({ perms, onChange, hide, onHide }: { perms: Record<Perm, boolean>; onChange: (p: Record<Perm, boolean>) => void; hide: string[]; onHide: (h: string[]) => void }) {
+  const pages = pagesFor(perms)
   return (
     <>
+      <div className="mb-2 font-extrabold">الصلاحيات</div>
       <div className="mb-2 flex flex-wrap gap-2">
         <button type="button" className="chip" onClick={() => onChange(permsOf(['sell', 'discount']))}>
           كاشير (بيع بس)
@@ -138,6 +142,17 @@ function PermsPicker({ perms, onChange }: { perms: Record<Perm, boolean>; onChan
           <Checkbox key={p} checked={perms[p]} onChange={(v) => onChange({ ...perms, [p]: v })} label={PERM_LABELS[p]} />
         ))}
       </div>
+      <div className="mt-4 font-extrabold">الأقسام اللي هتظهر له</div>
+      <div className="mb-1 text-xs leading-5 text-ink-3">شيل العلامة عشان القسم يختفي من عنده. لو قسم مش في القايمة، علّم الصلاحية بتاعته فوق.</div>
+      {pages.length === 0 ? (
+        <div className="py-3 text-sm font-bold text-ink-3">اختار صلاحية الأول</div>
+      ) : (
+        <div className="divide-y divide-line-soft">
+          {pages.map((p) => (
+            <Checkbox key={p.id} checked={!hide.includes(p.id)} onChange={(v) => onHide(v ? hide.filter((x) => x !== p.id) : [...hide, p.id])} label={p.label} />
+          ))}
+        </div>
+      )}
     </>
   )
 }
@@ -147,10 +162,11 @@ function AddMemberModal({ onClose, onDone }: { onClose: () => void; onDone: () =
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [perms, setPerms] = useState(() => permsOf(['sell', 'discount']))
+  const [hide, setHide] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
   const save = async () => {
     setBusy(true)
-    const ok = await run(() => createMember({ name, username, password, perms }), `تم إضافة ${name.trim()}`)
+    const ok = await run(() => createMember({ name, username, password, perms: { ...perms, hide } }), `تم إضافة ${name.trim()}`)
     setBusy(false)
     if (ok) {
       onDone()
@@ -179,13 +195,14 @@ function AddMemberModal({ onClose, onDone }: { onClose: () => void; onDone: () =
           <Input dir="ltr" autoComplete="off" value={password} onChange={(e) => setPassword(e.target.value)} />
         </Field>
       </div>
-      <PermsPicker perms={perms} onChange={setPerms} />
+      <PermsPicker perms={perms} onChange={setPerms} hide={hide} onHide={setHide} />
     </Modal>
   )
 }
 
 function PermsModal({ m, onClose, onDone }: { m: Profile; onClose: () => void; onDone: () => void }) {
   const [perms, setPerms] = useState<Record<Perm, boolean>>(() => permsOf(ALL_PERMS.filter((p) => m.perms?.[p] === true)))
+  const [hide, setHide] = useState<string[]>(m.perms?.hide ?? [])
   const [name, setName] = useState(m.name)
   const [busy, setBusy] = useState(false)
   const remove = async () => {
@@ -208,7 +225,7 @@ function PermsModal({ m, onClose, onDone }: { m: Profile; onClose: () => void; o
     if (!active && !(await confirmDialog({ title: 'إيقاف الحساب', message: `${m.name} مش هيقدر يدخل البرنامج لحد ما تفعّله تاني`, ok: 'إيقاف', danger: true }))) return
     setBusy(true)
     const ok = await run(
-      () => rpc('set_member', { p_user: m.id, p_active: active, p_perms: perms, p_name: name.trim() || null }),
+      () => rpc('set_member', { p_user: m.id, p_active: active, p_perms: { ...perms, hide }, p_name: name.trim() || null }),
       active ? (m.active ? 'تم حفظ الصلاحيات' : `تم تفعيل ${m.name}`) : 'تم إيقاف الحساب',
     )
     setBusy(false)
@@ -235,7 +252,7 @@ function PermsModal({ m, onClose, onDone }: { m: Profile; onClose: () => void; o
       <Field label="الاسم" className="mb-3">
         <Input value={name} onChange={(e) => setName(e.target.value)} />
       </Field>
-      <PermsPicker perms={perms} onChange={setPerms} />
+      <PermsPicker perms={perms} onChange={setPerms} hide={hide} onHide={setHide} />
       <button type="button" disabled={busy} onClick={remove} className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-btn text-sm font-bold text-red hover:bg-red-light disabled:opacity-50">
         <Trash2 className="h-4 w-4" /> مسح المستخدم
       </button>

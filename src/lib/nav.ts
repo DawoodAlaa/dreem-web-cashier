@@ -49,9 +49,16 @@ export const PAGES: { id: PageId; label: string; perms: Perm[] | 'owner' }[] = [
 // الصفحات اللي بتختفي لما متابعة الكميات تتقفل
 const STOCK_PAGES: PageId[] = ['inventory', 'purchases']
 
+/** الأقسام اللي الصلاحيات دي بتفتحها، والمدير بيختار منها اللي يظهر للموظف */
+export function pagesFor(perms: Partial<Record<Perm, boolean>>) {
+  const track = isTrackStock(useShop.getState().settings)
+  return PAGES.filter((p) => p.perms !== 'owner' && p.perms.some((x) => perms[x]) && (track || !STOCK_PAGES.includes(p.id)))
+}
+
 export function canOpen(page: PageId, profile: Profile | null): boolean {
   const def = PAGES.find((p) => p.id === page)
   if (!def || !profile) return false
+  if (!isOwner(profile) && profile.perms?.hide?.includes(page)) return false
   if (STOCK_PAGES.includes(page) && !isTrackStock(useShop.getState().settings)) return false
   if (def.perms === 'owner') return isOwner(profile)
   return def.perms.some((p) => can(p, profile))

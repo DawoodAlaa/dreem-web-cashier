@@ -296,7 +296,7 @@ export async function signOut() {
 }
 
 /** المدير بيعمل حساب موظف جاهز ومتفعّل من جوه البرنامج */
-export async function createMember(f: { name: string; username: string; password: string; perms: Partial<Record<Perm, boolean>> }) {
+export async function createMember(f: { name: string; username: string; password: string; perms: Profile['perms'] }) {
   if (!f.name.trim()) throw new AppError('اكتب اسم الموظف')
   checkUsername(f.username)
   checkPassword(f.password)

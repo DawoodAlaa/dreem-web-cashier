@@ -24,7 +24,7 @@ export interface Profile {
   name: string
   username: string
   role: 'owner' | 'staff'
-  perms: Partial<Record<Perm, boolean>>
+  perms: Partial<Record<Perm, boolean>> & { hide?: string[] } // hide: الأقسام اللي المدير مخفيها عن الموظف
   active: boolean
   created_at?: string
 }
