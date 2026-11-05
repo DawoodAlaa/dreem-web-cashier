@@ -7,6 +7,7 @@ export type Perm =
   | 'returns'
   | 'customers'
   | 'products'
+  | 'add_goods'
   | 'stock'
   | 'purchases'
   | 'used'
@@ -51,6 +52,9 @@ export interface Product {
   notes: string | null
   archived: boolean
   created_at: string
+  /** اسم الموظف اللي ضاف المنتج لو لسه مستني مراجعة المدير */
+  review_by?: string | null
+  review_at?: string | null
 }
 
 export interface Variant {

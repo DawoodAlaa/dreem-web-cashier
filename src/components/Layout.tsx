@@ -9,6 +9,7 @@ import {
   KeyRound,
   LogOut,
   Menu,
+  PackagePlus,
   PackageSearch,
   Repeat2,
   Settings,
@@ -27,12 +28,12 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { changeMyPassword, signOut, useAuth } from '@/lib/auth'
+import { changeMyPassword, signOut, useAuth, useCan } from '@/lib/auth'
 import { int } from '@/lib/format'
 import { PAGES, canOpen, go, pageLabel, useNav, type PageId } from '@/lib/nav'
 import { onStatus } from '@/lib/realtime'
 import { useShortageCount } from '@/lib/shortages'
-import { useShop, useTrackStock } from '@/lib/shop'
+import { useGoodsWaiting, useShop, useTrackStock } from '@/lib/shop'
 import { run } from '@/lib/toast'
 import { SwitchUser } from './SwitchUser'
 import { Button, Field, IconButton, Input, Modal, Tag, cx, useBackClose } from './ui'
@@ -42,6 +43,7 @@ const ICONS: Record<PageId, LucideIcon> = {
   today: House,
   invoices: FileText,
   products: PackageSearch,
+  goods: PackagePlus,
   inventory: ClipboardCheck,
   purchases: Truck,
   compat: Repeat2,
@@ -63,6 +65,8 @@ function NavList({ onPick }: { onPick?: () => void }) {
   useTrackStock() // الصفحات بتتغير لما متابعة الكميات تتقفل أو تتفتح
   const items = PAGES.filter((p) => canOpen(p.id, profile))
   const shortages = useShortageCount()
+  const canReview = useCan('products')
+  const waiting = useGoodsWaiting()
   return (
     <nav className="space-y-1">
       {items.map((p) => {
@@ -85,6 +89,9 @@ function NavList({ onPick }: { onPick?: () => void }) {
             <span className="flex-1 text-right">{p.label}</span>
             {p.id === 'shortages' && shortages > 0 && (
               <span className={cx('num rounded-full px-2 text-xs font-extrabold', on ? 'bg-white/25 text-white' : 'bg-red-light text-red')}>{shortages}</span>
+            )}
+            {p.id === 'goods' && canReview && waiting > 0 && (
+              <span className={cx('num rounded-full px-2 text-xs font-extrabold', on ? 'bg-white/25 text-white' : 'bg-orange-light text-orange')}>{waiting}</span>
             )}
           </button>
         )
@@ -308,7 +315,7 @@ function ChangePassword({ open, onClose }: { open: boolean; onClose: () => void 
 // ───────── شريط التنقل اللي تحت (الموبايل) ─────────
 
 // أهم الصفحات بالترتيب، وبناخد أول 4 مسموحة للمستخدم. الباقي في "المزيد"
-const TABS: PageId[] = ['sales', 'today', 'invoices', 'products', 'reports', 'drawer', 'customers', 'expenses', 'inventory']
+const TABS: PageId[] = ['sales', 'today', 'invoices', 'products', 'reports', 'drawer', 'customers', 'expenses', 'inventory', 'goods']
 const SHORT: Partial<Record<PageId, string>> = { reports: 'الأرباح', drawer: 'الدرج', customers: 'العملاء', inventory: 'الجرد' }
 
 /** وإحنا بنكتب على الموبايل الكيبورد بيطلع، فبنخفي الشريط عشان ميغطيش الشاشة */
@@ -380,7 +387,7 @@ function BottomNav({ onMore }: { onMore: () => void }) {
 // ───────── الشريط الرفيع على الجنب (التابلت) ─────────
 
 // أهم الصفحات بس، وبناخد أول 6 مسموحة للمستخدم. الباقي في "المزيد"
-const RAIL: PageId[] = ['sales', 'today', 'invoices', 'products', 'shortages', 'reports', 'drawer', 'customers', 'expenses']
+const RAIL: PageId[] = ['sales', 'today', 'invoices', 'products', 'shortages', 'reports', 'drawer', 'customers', 'expenses', 'goods']
 
 function SideRail({ onMore }: { onMore: () => void }) {
   const profile = useAuth((s) => s.profile)

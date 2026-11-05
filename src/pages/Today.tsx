@@ -1,4 +1,4 @@
-import { AlertTriangle, ChevronLeft, CloudDownload, HandCoins, Landmark, ListTodo, PackageX, ShoppingCart, TrendingUp, UserRound, Wallet } from 'lucide-react'
+import { AlertTriangle, ChevronLeft, CloudDownload, HandCoins, Landmark, ListTodo, PackagePlus, PackageX, ShoppingCart, TrendingUp, UserRound, Wallet } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { actionStyle, iconBg } from '@/components/logStyle'
 import { Empty, ErrorBox, Loading, Money, cx } from '@/components/ui'
@@ -8,7 +8,7 @@ import { daysAgo, int, iso, makeRange, money, timeFmt } from '@/lib/format'
 import { canOpen, go, useNav, type PageId } from '@/lib/nav'
 import { onStatus } from '@/lib/realtime'
 import { useShortageCount } from '@/lib/shortages'
-import { useShop, useTrackStock } from '@/lib/shop'
+import { useGoodsWaiting, useShop, useTrackStock } from '@/lib/shop'
 import { supabase } from '@/lib/supabase'
 import type { ActivityLog, ProfitReport } from '@/lib/types'
 import { useLive } from '@/lib/useLive'
@@ -125,6 +125,8 @@ export default function TodayPage() {
   const lastBackup = useShop((s) => s.settings.last_cloud_backup)
   const backupDays = lastBackup ? daysAgo(lastBackup) : null
   const backupLate = canOpen('backup', profile) && (backupDays == null || backupDays >= 7)
+  const canReview = useCan('products')
+  const waitingGoods = useGoodsWaiting()
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
@@ -146,6 +148,14 @@ export default function TodayPage() {
             {backupDays == null ? 'لسه معملتش نسخة احتياطية.' : `آخر نسخة احتياطية من ${backupDays} ${backupDays <= 10 ? "أيام" : "يوم"}.`} دوس هنا ونزّل نسخة عشان بياناتك تفضل في أمان
           </span>
           <ChevronLeft className="h-5 w-5 shrink-0 text-orange" />
+        </button>
+      )}
+
+      {canReview && waitingGoods > 0 && (
+        <button type="button" onClick={() => go('goods', 'review')} className="flex w-full items-center gap-3 rounded-card border border-primary/30 bg-primary-light p-3 text-right active:scale-[0.99]">
+          <PackagePlus className="h-6 w-6 shrink-0 text-primary" />
+          <span className="min-w-0 flex-1 text-sm font-bold text-primary">في {int(waitingGoods)} منتج جديد مستني مراجعة الأسعار</span>
+          <ChevronLeft className="h-5 w-5 shrink-0 text-primary" />
         </button>
       )}
 

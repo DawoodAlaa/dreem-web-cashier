@@ -8,6 +8,7 @@ export type PageId =
   | 'today'
   | 'invoices'
   | 'products'
+  | 'goods'
   | 'inventory'
   | 'purchases'
   | 'compat'
@@ -27,6 +28,7 @@ export const PAGES: { id: PageId; label: string; perms: Perm[] | 'owner' }[] = [
   { id: 'today', label: 'النهارده', perms: ['reports', 'drawer', 'log'] },
   { id: 'invoices', label: 'الفواتير', perms: ['sell', 'returns'] },
   { id: 'products', label: 'المنتجات', perms: ['products', 'stock'] },
+  { id: 'goods', label: 'إضافة بضاعة', perms: ['add_goods', 'products'] },
   { id: 'inventory', label: 'جرد المخزون', perms: ['stock'] },
   { id: 'shortages', label: 'النواقص', perms: ['sell', 'products', 'stock', 'purchases'] },
   { id: 'purchases', label: 'المشتريات', perms: ['purchases'] },
@@ -39,7 +41,7 @@ export const PAGES: { id: PageId; label: string; perms: Perm[] | 'owner' }[] = [
   {
     id: 'salaries',
     label: 'المرتبات',
-    perms: ['sell', 'discount', 'credit', 'returns', 'customers', 'products', 'stock', 'purchases', 'used', 'expenses', 'drawer', 'reports', 'log', 'undo', 'settings', 'salaries'],
+    perms: ['sell', 'discount', 'credit', 'returns', 'customers', 'products', 'add_goods', 'stock', 'purchases', 'used', 'expenses', 'drawer', 'reports', 'log', 'undo', 'settings', 'salaries'],
   },
   { id: 'users', label: 'المستخدمين', perms: 'owner' },
   { id: 'backup', label: 'النسخ الاحتياطي', perms: 'owner' },
