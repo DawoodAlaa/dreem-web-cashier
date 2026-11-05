@@ -33,7 +33,6 @@ const pages: Record<PageId, ComponentType> = {
   invoices: lazy(retryChunk(() => import('./pages/Invoices'))),
   products: lazy(retryChunk(() => import('./pages/Products'))),
   goods: lazy(retryChunk(() => import('./pages/Goods'))),
-  inventory: lazy(retryChunk(() => import('./pages/Inventory'))),
   purchases: lazy(retryChunk(() => import('./pages/Purchases'))),
   compat: lazy(retryChunk(() => import('./pages/Compat'))),
   customers: lazy(retryChunk(() => import('./pages/Customers'))),

@@ -21,7 +21,6 @@ import {
   HandCoins,
   House,
   WifiOff,
-  ClipboardCheck,
   Landmark,
   ChevronDown,
   X,
@@ -44,7 +43,6 @@ const ICONS: Record<PageId, LucideIcon> = {
   invoices: FileText,
   products: PackageSearch,
   goods: PackagePlus,
-  inventory: ClipboardCheck,
   purchases: Truck,
   compat: Repeat2,
   customers: Users,
@@ -315,8 +313,8 @@ function ChangePassword({ open, onClose }: { open: boolean; onClose: () => void 
 // ───────── شريط التنقل اللي تحت (الموبايل) ─────────
 
 // أهم الصفحات بالترتيب، وبناخد أول 4 مسموحة للمستخدم. الباقي في "المزيد"
-const TABS: PageId[] = ['sales', 'today', 'invoices', 'products', 'reports', 'drawer', 'customers', 'expenses', 'inventory', 'goods']
-const SHORT: Partial<Record<PageId, string>> = { reports: 'الأرباح', drawer: 'الدرج', customers: 'العملاء', inventory: 'الجرد' }
+const TABS: PageId[] = ['sales', 'today', 'invoices', 'products', 'reports', 'drawer', 'customers', 'expenses', 'goods']
+const SHORT: Partial<Record<PageId, string>> = { reports: 'الأرباح', drawer: 'الدرج', customers: 'العملاء' }
 
 /** وإحنا بنكتب على الموبايل الكيبورد بيطلع، فبنخفي الشريط عشان ميغطيش الشاشة */
 function useTyping() {

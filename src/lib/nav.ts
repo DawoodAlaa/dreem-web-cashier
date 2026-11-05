@@ -9,7 +9,6 @@ export type PageId =
   | 'invoices'
   | 'products'
   | 'goods'
-  | 'inventory'
   | 'purchases'
   | 'compat'
   | 'customers'
@@ -29,7 +28,6 @@ export const PAGES: { id: PageId; label: string; perms: Perm[] | 'owner' }[] = [
   { id: 'invoices', label: 'الفواتير', perms: ['sell', 'returns'] },
   { id: 'products', label: 'المنتجات', perms: ['products', 'stock'] },
   { id: 'goods', label: 'إضافة بضاعة', perms: ['add_goods', 'products'] },
-  { id: 'inventory', label: 'جرد المخزون', perms: ['stock'] },
   { id: 'shortages', label: 'النواقص', perms: ['sell', 'products', 'stock', 'purchases'] },
   { id: 'purchases', label: 'المشتريات', perms: ['purchases'] },
   { id: 'compat', label: 'التوفيقات', perms: ['sell', 'products', 'stock', 'purchases'] },
@@ -49,7 +47,7 @@ export const PAGES: { id: PageId; label: string; perms: Perm[] | 'owner' }[] = [
 ]
 
 // الصفحات اللي بتختفي لما متابعة الكميات تتقفل
-const STOCK_PAGES: PageId[] = ['inventory', 'purchases']
+const STOCK_PAGES: PageId[] = ['purchases']
 
 /** الأقسام اللي الصلاحيات دي بتفتحها، والمدير بيختار منها اللي يظهر للموظف */
 export function pagesFor(perms: Partial<Record<Perm, boolean>>) {
