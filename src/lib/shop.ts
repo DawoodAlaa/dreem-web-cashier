@@ -282,7 +282,7 @@ export const reloadCatalog = () => loadCatalog()
 
 export const canSellVariant = (v: Variant) => v.uncounted || v.stock > 0
 
-/** متابعة الكميات شغالة في المحل؟ (الإعدادات ← متابعة الكميات). لما تتقفل الكميات والجرد والمشتريات بيختفوا */
+/** متابعة الكميات شغالة في المحل؟ (الإعدادات ← متابعة الكميات). لما تتقفل الكميات والمشتريات بيختفوا */
 export const isTrackStock = (settings: Record<string, string>) => settings.track_stock !== '0'
 export const useTrackStock = () => useShop((s) => isTrackStock(s.settings))
 /** عدد المنتجات اللي مستنية مراجعة المدير */
@@ -330,7 +330,7 @@ export function assemblable(pv: ProductView, s = useShop.getState()): boolean {
   })
 }
 
-/** الكمية الإضافية اللي ممكن تتفك أو تتجمع (null = مفتوحة لأنها لسه متجردتش) */
+/** الكمية الإضافية اللي ممكن تتفك أو تتجمع (null = مفتوحة لأنها لسه متعدّتش) */
 export function extraAvailable(pv: ProductView, s = useShop.getState()): number | null {
   const parts = s.parts.byParent.get(pv.p.id)
   if (parts && parts.length) {

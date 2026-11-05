@@ -1,4 +1,4 @@
-import { AlertTriangle, Check, ChevronDown, ChevronUp, Gift, LayoutGrid, List, ListPlus, Minus, PauseCircle, Plus, ShoppingCart, Trash2, UserRound, X, Zap } from 'lucide-react'
+import { AlertTriangle, Check, ChevronUp, Gift, LayoutGrid, List, ListPlus, Minus, PauseCircle, Plus, ShoppingCart, Trash2, UserRound, X, Zap } from 'lucide-react'
 import { memo, useEffect, useMemo, useState } from 'react'
 import { CustomerPicker, useCustomers } from '@/components/CustomerPicker'
 import { CategoryIcon } from '@/components/icons'
@@ -199,7 +199,7 @@ function useCardInfo(pv: ProductView) {
   let qty: React.ReactNode
   if (split) qty = <span className="text-purple">يتفك من {split.p.name}</span>
   else if (asm) qty = <span className="text-purple">يتجمّع من الأجزاء</span>
-  else if (pv.allUncounted) qty = <span className="text-orange">لسه متجردش</span>
+  else if (pv.allUncounted) qty = <span className="text-orange">لسه متعدّش</span>
   else if (out) qty = <span className="text-red">خلص</span>
   else qty = <span className={pv.isLow ? 'text-orange' : 'text-ink-2'}>الكمية: <span className="num">{pv.stock}</span>{pv.uncounted ? ' +' : ''}</span>
   return { icon, range, out, qty, flag }
@@ -397,7 +397,7 @@ function AddToCart({ pv: initial, onClose, onSellNow }: { pv: ProductView; onClo
   else if (!canDiscount && pn + EPS < vp.sell) err = 'مش مسموحلك تقلل السعر. اطلب الصلاحية من المدير'
 
   const availText = (() => {
-    if (v.uncounted) return 'لسه متجردش (متاح)'
+    if (v.uncounted) return 'لسه متعدّش (متاح)'
     if (extra == null) return 'متاح'
     return extra > 0 ? `موجود ${v.stock} + يتفك ${extra}` : `موجود ${v.stock}`
   })()
@@ -516,7 +516,7 @@ function AddToCart({ pv: initial, onClose, onSellNow }: { pv: ProductView; onClo
                 <span className="truncate text-ink-2">
                   {x.qty ? `${x.pv!.p.name} × ${x.qty}` : x.pv!.p.name}
                 </span>
-                <span className="font-bold">{x.pv!.allUncounted ? 'لسه متجردش' : x.pv!.stock}</span>
+                <span className="font-bold">{x.pv!.allUncounted ? 'لسه متعدّش' : x.pv!.stock}</span>
               </div>
             ))}
             <div className="mt-1 text-xs text-ink-3">لو الجزء خلص، الشاحن بيتفك لوحده وقت البيع</div>
@@ -524,33 +524,20 @@ function AddToCart({ pv: initial, onClose, onSellNow }: { pv: ProductView; onClo
         )}
         <button type="submit" className="sr-only" tabIndex={-1} aria-hidden="true" />
       </form>
-      <ProductTools pv={pv} v={v} out={left != null && left <= 0} onLoss={() => setLoss(true)} />
+      <ProductTools pv={pv} v={v} onLoss={() => setLoss(true)} />
       {loss && <LossForm open initial={{ pv, v }} onClose={() => setLoss(false)} onSaved={onClose} />}
     </Modal>
   )
 }
 
-/** هالك + جرد سريع للكمية + إضافة للنواقص (جوه نافذة المنتج) */
-function ProductTools({ pv, v, out, onLoss }: { pv: ProductView; v: Variant; out: boolean; onLoss: () => void }) {
-  const track = useTrackStock()
+/** هالك + إضافة للنواقص (جوه نافذة المنتج) */
+function ProductTools({ pv, v, onLoss }: { pv: ProductView; v: Variant; onLoss: () => void }) {
   const canLoss = useCan('stock')
-  const canStock = canLoss && track
   const { ready, missing, list } = useShortages()
   const entry = list.find((x) => !x.done && x.product_id === pv.p.id)
   const status: ShortageStatus | null = entry ? (entry.low ? 'low' : 'out') : null
-  const [count, setCount] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
-  const [more, setMore] = useState(false)
-  const label = variantLabel(pv.p.name, pv.hasVariants ? v.name : null)
 
-  const saveCount = async () => {
-    const n = parseInt0(count)
-    if (n == null || n < 0) return toast('اكتب العدد الموجود', 'error')
-    setBusy('count')
-    const ok = await run(() => rpc('count_stock', { p_variant: v.id, p_counted: n }), `تم الجرد: ${label} = ${n}`)
-    setBusy(null)
-    if (ok) setCount('')
-  }
   const mark = async (low: boolean) => {
     if (missing) return toast('قايمة النواقص لسه متفعّلتش. المدير يفعّلها من صفحة النواقص', 'error')
     setBusy(low ? 'low' : 'short')
@@ -590,62 +577,16 @@ function ProductTools({ pv, v, out, onLoss }: { pv: ProductView; v: Variant; out
     </div>
   )
 
-  const stockEl = canStock && (
-    <div className="rounded-btn bg-bg p-3">
-      <div className="mb-2 flex items-center justify-between gap-2 text-sm">
-        <span className="font-extrabold">عدّ الموجود{pv.hasVariants ? ` (${v.name ?? ''})` : ''}</span>
-        <span className="text-ink-3">
-          في البرنامج: <b className="text-ink">{v.uncounted ? 'لسه متجردش' : v.stock}</b>
-        </span>
-      </div>
-      <form
-        className="flex gap-2"
-        onSubmit={(e) => {
-          e.preventDefault()
-          void saveCount()
-        }}
-      >
-        <NumInput decimal={false} placeholder="العدد اللي على الرف" value={count} onChange={(e) => setCount(e.target.value)} enterKeyHint="done" />
-        <Button type="submit" variant="soft" loading={busy === 'count'} disabled={count === ''} className="shrink-0">
-          حفظ العدد
-        </Button>
-      </form>
-    </div>
-  )
-
   const lossEl = canLoss && (
     <Button block variant="outline" className="border-orange/40 text-orange" icon={<AlertTriangle className="h-5 w-5" />} onClick={onLoss}>
       تسجيل هالك
     </Button>
   )
 
-  // الجرد والنواقص مستخبيين تحت زرار عشان الشباك يبقى للبيع بس. لو المنتج خلص، زرار النواقص بيبان على طول
-  // من غير جرد: زرار النواقص بس، باين على طول
-  if (!canStock) {
-    return (
-      <div className="mt-4 space-y-2 border-t border-line-soft pt-3">
-        {lossEl}
-        {shortageEl}
-      </div>
-    )
-  }
-
   return (
     <div className="mt-4 space-y-2 border-t border-line-soft pt-3">
       {lossEl}
-      {out && shortageEl}
-      {(canStock || !out) && (
-        <button type="button" onClick={() => setMore((m) => !m)} className="flex w-full items-center justify-center gap-1.5 rounded-btn py-2 text-sm font-bold text-ink-3 hover:bg-bg">
-          {more ? 'إخفاء' : canStock ? (out ? 'جرد الكمية' : 'جرد الكمية والنواقص') : 'النواقص'}
-          <ChevronDown className={cx('h-4 w-4 transition-transform', more && 'rotate-180')} />
-        </button>
-      )}
-      {more && (
-        <div className="space-y-3">
-          {stockEl}
-          {!out && shortageEl}
-        </div>
-      )}
+      {shortageEl}
     </div>
   )
 }

@@ -102,7 +102,7 @@ export async function clearDoneShortages() {
   return Number(n) || 0
 }
 
-/** المنتجات اللي كميتها خلصت (المتجرد بس)، من غير اللي ممكن يتفك أو يتجمّع */
+/** المنتجات اللي كميتها خلصت (المتعد بس)، من غير اللي ممكن يتفك أو يتجمّع */
 export function useOutOfStock(): { pv: ProductView; colors: string[] }[] {
   const views = useShop((s) => s.views)
   const parts = useShop((s) => s.parts)

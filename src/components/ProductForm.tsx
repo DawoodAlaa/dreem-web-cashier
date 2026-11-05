@@ -121,7 +121,7 @@ export function ProductForm({
   const track = useTrackStock()
   const [imei, setImei] = useState(p?.imei ?? '')
   const [notes, setNotes] = useState(p?.notes ?? '')
-  const [uncounted, setUncounted] = useState(product ? product.allUncounted : false)
+  const uncounted = product ? product.allUncounted : false
   const [colors, setColors] = useState(product ? product.hasVariants : false)
   const [rows, setRows] = useState<VRow[]>(
     product
@@ -253,7 +253,6 @@ export function ProductForm({
         <div className="rounded-card border border-line p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <Checkbox checked={colors} onChange={setColors} label="المنتج ليه ألوان / أنواع" />
-            {!p && track && <Checkbox checked={uncounted} onChange={setUncounted} label="الكمية هتتجرد بعدين" />}
           </div>
           {colors ? (
             <div className="mt-2 space-y-2">
@@ -262,7 +261,7 @@ export function ProductForm({
                 <div className="flex items-center gap-2">
                   <Input className="flex-1" placeholder="النوع أو اللون (مثلاً أسود أو مستورد)" value={r.name} onChange={(e) => setRow(i, { name: e.target.value })} />
                   {!track ? null : r.uncounted || (!r.id && uncounted) ? (
-                    <span className="w-24 shrink-0 text-center text-xs font-bold text-orange">لسه متجردش</span>
+                    <span className="w-24 shrink-0 text-center text-xs font-bold text-orange">لسه متعدّش</span>
                   ) : (
                     <NumInput decimal={false} className="w-24 shrink-0" placeholder="الكمية" value={r.stock} onChange={(e) => setRow(i, { stock: e.target.value })} />
                   )}
@@ -292,7 +291,7 @@ export function ProductForm({
           ) : !track ? null : (
             <div className="mt-2">
               {rows[0].uncounted || (!rows[0].id && uncounted) ? (
-                <div className="text-sm font-bold text-orange">الكمية: لسه متجردش (هتتحدد في الجرد)</div>
+                <div className="text-sm font-bold text-orange">الكمية: لسه متعدّش. اكتب عدده من إضافة بضاعة</div>
               ) : (
                 <Field label="الكمية">
                   <NumInput decimal={false} value={rows[0].stock} onChange={(e) => setRow(0, { stock: e.target.value })} />

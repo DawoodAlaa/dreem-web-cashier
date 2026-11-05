@@ -17,7 +17,7 @@ export const CASH_KINDS: Record<string, { label: string; color: Color }> = {
   used_purchase: { label: 'شراء مستعمل', color: 'purple' },
   withdrawal: { label: 'سحب / تصفية', color: 'primary' },
   deposit: { label: 'إيداع', color: 'green' },
-  count_diff: { label: 'فرق جرد', color: 'orange' },
+  count_diff: { label: 'فرق تصفية', color: 'orange' },
   salary_fund: { label: 'تحويل للمرتبات', color: 'teal' },
 }
 

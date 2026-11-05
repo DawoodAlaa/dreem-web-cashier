@@ -72,7 +72,7 @@ export function ProductPicker({
                 }}
               >
                 <span className="font-bold">{v.name ?? 'عادي'}</span>
-                {track && <span className="text-sm text-ink-3">{v.uncounted ? 'لسه متجردش' : `الكمية ${v.stock}`}</span>}
+                {track && <span className="text-sm text-ink-3">{v.uncounted ? 'لسه متعدّش' : `الكمية ${v.stock}`}</span>}
               </button>
             )
           })}
@@ -104,7 +104,7 @@ export function ProductPicker({
                           جملة <Money v={pv.p.cost_price} />
                         </span>
                       )}
-                      {track && <span>{pv.allUncounted ? 'لسه متجردش' : `الكمية ${pv.stock}`}</span>}
+                      {track && <span>{pv.allUncounted ? 'لسه متعدّش' : `الكمية ${pv.stock}`}</span>}
                       {pv.hasVariants && <Tag color="gray">{pv.vs.length} ألوان</Tag>}
                     </div>
                   </div>

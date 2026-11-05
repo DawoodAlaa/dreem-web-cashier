@@ -202,7 +202,7 @@ export default function ProductsPage() {
                 <AlertTriangle className="h-4 w-4" /> قربت تخلص ({lowCount})
               </button>
               <button type="button" className={cx('chip', unc && 'chip-on')} onClick={() => setUnc((x) => !x)}>
-                لسه متجردش ({uncCount})
+                لسه متعدّش ({uncCount})
               </button>
             </>
           )}
@@ -405,7 +405,7 @@ function ProductRow({
         {track ? (
           <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
             {pv.allUncounted ? (
-              <Tag color="orange">لسه متجردش</Tag>
+              <Tag color="orange">لسه متعدّش</Tag>
             ) : (
               <Tag color={pv.stock <= 0 ? 'red' : pv.isLow ? 'orange' : 'gray'}>الكمية {pv.stock}</Tag>
             )}
@@ -464,7 +464,7 @@ function AddStock({ pv, onClose }: { pv: ProductView; onClose: () => void }) {
           <div key={v.id} className="flex items-center gap-3">
             <div className="min-w-0 flex-1">
               <div className="font-bold">{v.name ?? 'الكمية الجديدة'}</div>
-              <div className="text-xs text-ink-3">{v.uncounted ? 'لسه متجردش' : `الموجود ${v.stock}`}</div>
+              <div className="text-xs text-ink-3">{v.uncounted ? 'لسه متعدّش' : `الموجود ${v.stock}`}</div>
             </div>
             <NumInput decimal={false} className="w-28" placeholder="0" autoFocus={pv.vs.length === 1} value={qty[v.id] ?? ''} onChange={(e) => setQty((s) => ({ ...s, [v.id]: e.target.value }))} />
           </div>
@@ -487,7 +487,6 @@ function QuickAdd({ defaultCategory, onClose }: { defaultCategory: number | null
   const [minSell, setMinSell] = useState('')
   const [minStock, setMinStock] = useState('1')
   const [image, setImage] = useState<string | null>(null)
-  const [uncounted, setUncounted] = useState(false)
   const [rows, setRows] = useState([{ name: '', qty: '1' }])
   const [busy, setBusy] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -506,7 +505,7 @@ function QuickAdd({ defaultCategory, onClose }: { defaultCategory: number | null
             min_sell: parseNum(minSell) ?? sellN,
             min_stock: parseInt0(minStock) ?? 0,
             image_url: image,
-            uncounted: uncounted || !track,
+            uncounted: !track,
             items,
           },
         }),
@@ -562,7 +561,6 @@ function QuickAdd({ defaultCategory, onClose }: { defaultCategory: number | null
         <Field group label="صورة (للكل)">
           <ImagePicker value={image} onChange={setImage} onBusy={setUploading} />
         </Field>
-        {track && <Checkbox checked={uncounted} onChange={setUncounted} label="الكمية هتتجرد بعدين" />}
         <div className="space-y-2">
           {rows.map((r, i) => (
             <div key={i} className="flex gap-2">
@@ -578,7 +576,7 @@ function QuickAdd({ defaultCategory, onClose }: { defaultCategory: number | null
                   }
                 }}
               />
-              {!uncounted && track && (
+              {track && (
                 <NumInput decimal={false} className="w-20" value={r.qty} onChange={(e) => setRows((x) => x.map((y, j) => (j === i ? { ...y, qty: e.target.value } : y)))} />
               )}
               <IconButton label="حذف" className="text-red" onClick={() => setRows((x) => (x.length > 1 ? x.filter((_, j) => j !== i) : x))}>

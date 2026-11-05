@@ -80,7 +80,7 @@ export function lineFrom(pv: ProductView, v: Variant, qty: number, price: number
   }
 }
 
-/** الكمية المتاحة للبيع من اللون ده (null = مفتوحة، لسه متجردش) */
+/** الكمية المتاحة للبيع من اللون ده (null = مفتوحة، لسه متعدّش) */
 export function availableFor(variantId: number): number | null {
   const s = useShop.getState()
   const v = s.variantById.get(variantId)

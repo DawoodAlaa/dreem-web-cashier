@@ -171,7 +171,7 @@ function ShortageRow({ s, pv }: { s: Shortage; pv?: ProductView }) {
         <div className="flex flex-wrap items-center gap-1.5 text-xs text-ink-3">
           {!s.done && <Tag color={s.low ? 'orange' : 'red'}>{s.low ? 'قرب يخلص' : 'خلص'}</Tag>}
           {s.note && <Tag color="gray">{s.note}</Tag>}
-          {pv && track && (pv.allUncounted ? <Tag color="gray">لسه متجردش</Tag> : <Tag color={pv.stock <= 0 ? 'red' : 'green'}>الموجود {pv.stock}</Tag>)}
+          {pv && track && (pv.allUncounted ? <Tag color="gray">لسه متعدّش</Tag> : <Tag color={pv.stock <= 0 ? 'red' : 'green'}>الموجود {pv.stock}</Tag>)}
           {!s.product_id && <Tag color="purple">مش في المنتجات</Tag>}
           <span>
             {s.user_name ? `${s.user_name} • ` : ''}

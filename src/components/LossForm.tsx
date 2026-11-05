@@ -75,7 +75,7 @@ export function LossForm({ open, onClose, onSaved, initial }: { open: boolean; o
               {item ? (
                 <span className="truncate">
                   {variantLabel(item.pv.p.name, item.v.name)}
-                  {track && <span className="mr-2 text-xs text-ink-3">{item.v.uncounted ? 'لسه متجردش' : `الكمية ${item.v.stock}`}</span>}
+                  {track && <span className="mr-2 text-xs text-ink-3">{item.v.uncounted ? 'لسه متعدّش' : `الكمية ${item.v.stock}`}</span>}
                 </span>
               ) : (
                 <span className="text-ink-3">اختار المنتج</span>

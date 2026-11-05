@@ -73,7 +73,7 @@ export interface Variant {
 export interface ProductView {
   p: Product
   vs: Variant[]
-  stock: number // مجموع المتجرد بس
+  stock: number // مجموع المتعد بس
   outOfStock: boolean
   uncounted: boolean
   allUncounted: boolean
