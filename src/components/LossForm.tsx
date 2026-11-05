@@ -9,7 +9,7 @@ import { ProductPicker } from './ProductPicker'
 import { Button, Field, Input, Modal, NumInput, Segmented, Select, TextArea } from './ui'
 
 /** تسجيل هالك: من المخزون (منتج ولون وكمية) أو حاجة برة المخزون */
-export function LossForm({ open, onClose, initial }: { open: boolean; onClose: () => void; initial?: { pv: ProductView; v: Variant } | null }) {
+export function LossForm({ open, onClose, onSaved, initial }: { open: boolean; onClose: () => void; onSaved?: () => void; initial?: { pv: ProductView; v: Variant } | null }) {
   const showCost = useCan('reports')
   const track = useTrackStock()
   const [src, setSrc] = useState<'stock' | 'free'>('stock')
@@ -37,7 +37,10 @@ export function LossForm({ open, onClose, initial }: { open: boolean; onClose: (
       'تم تسجيل الهالك',
     )
     setBusy(false)
-    if (ok) onClose()
+    if (ok) {
+      onClose()
+      onSaved?.()
+    }
   }
 
   const valid = (parseInt0(qty) ?? 0) > 0 && (src === 'stock' ? !!item : !!freeName.trim())
@@ -55,14 +58,17 @@ export function LossForm({ open, onClose, initial }: { open: boolean; onClose: (
       }
     >
       <div className="space-y-3">
-        <Segmented
-          value={src}
-          onChange={setSrc}
-          options={[
-            { value: 'stock', label: track ? 'من المخزون' : 'من المنتجات' },
-            { value: 'free', label: 'حاجة برة المخزون' },
-          ]}
-        />
+        {/* جاي من منتج معين: الاختيار ده ملوش لازمة */}
+        {!initial && (
+          <Segmented
+            value={src}
+            onChange={setSrc}
+            options={[
+              { value: 'stock', label: track ? 'من المخزون' : 'من المنتجات' },
+              { value: 'free', label: 'حاجة برة المخزون' },
+            ]}
+          />
+        )}
         {src === 'stock' ? (
           <Field label="المنتج">
             <button type="button" className="input flex items-center text-right" onClick={() => setPicking(true)}>

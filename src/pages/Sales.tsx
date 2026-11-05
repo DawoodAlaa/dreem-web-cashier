@@ -1,7 +1,8 @@
-import { Check, ChevronDown, ChevronUp, Gift, LayoutGrid, List, ListPlus, Minus, PauseCircle, Plus, ShoppingCart, Trash2, UserRound, X, Zap } from 'lucide-react'
+import { AlertTriangle, Check, ChevronDown, ChevronUp, Gift, LayoutGrid, List, ListPlus, Minus, PauseCircle, Plus, ShoppingCart, Trash2, UserRound, X, Zap } from 'lucide-react'
 import { memo, useEffect, useMemo, useState } from 'react'
 import { CustomerPicker, useCustomers } from '@/components/CustomerPicker'
 import { CategoryIcon } from '@/components/icons'
+import { LossForm } from '@/components/LossForm'
 import { ProductForm, ProductImage } from '@/components/ProductForm'
 import { Button, Chips, Empty, Field, IconButton, Modal, Money, NumInput, SearchBox, Segmented, Select, Tag, TextArea, confirmDialog, cx, promptDialog, useIsMobile } from '@/components/ui'
 import { VirtualGrid, VirtualList } from '@/components/virtual'
@@ -372,6 +373,7 @@ function AddToCart({ pv: initial, onClose, onSellNow }: { pv: ProductView; onClo
   const [variantId, setVariantId] = useState(() => firstSellable(initial).id)
   const [qty, setQty] = useState('1')
   const [price, setPrice] = useState(() => money(vPrice(initial, firstSellable(initial)).sell).replace(/,/g, ''))
+  const [loss, setLoss] = useState(false)
   const v: Variant = pv.vs.find((x) => x.id === variantId) ?? pv.vs[0]
   const p = pv.p
   const vp = vPrice(pv, v)
@@ -522,15 +524,17 @@ function AddToCart({ pv: initial, onClose, onSellNow }: { pv: ProductView; onClo
         )}
         <button type="submit" className="sr-only" tabIndex={-1} aria-hidden="true" />
       </form>
-      <ProductTools pv={pv} v={v} out={left != null && left <= 0} />
+      <ProductTools pv={pv} v={v} out={left != null && left <= 0} onLoss={() => setLoss(true)} />
+      {loss && <LossForm open initial={{ pv, v }} onClose={() => setLoss(false)} onSaved={onClose} />}
     </Modal>
   )
 }
 
-/** جرد سريع للكمية + إضافة للنواقص (جوه نافذة المنتج) */
-function ProductTools({ pv, v, out }: { pv: ProductView; v: Variant; out: boolean }) {
+/** هالك + جرد سريع للكمية + إضافة للنواقص (جوه نافذة المنتج) */
+function ProductTools({ pv, v, out, onLoss }: { pv: ProductView; v: Variant; out: boolean; onLoss: () => void }) {
   const track = useTrackStock()
-  const canStock = useCan('stock') && track
+  const canLoss = useCan('stock')
+  const canStock = canLoss && track
   const { ready, missing, list } = useShortages()
   const entry = list.find((x) => !x.done && x.product_id === pv.p.id)
   const status: ShortageStatus | null = entry ? (entry.low ? 'low' : 'out') : null
@@ -609,12 +613,26 @@ function ProductTools({ pv, v, out }: { pv: ProductView; v: Variant; out: boolea
     </div>
   )
 
+  const lossEl = canLoss && (
+    <Button block variant="outline" className="border-orange/40 text-orange" icon={<AlertTriangle className="h-5 w-5" />} onClick={onLoss}>
+      تسجيل هالك
+    </Button>
+  )
+
   // الجرد والنواقص مستخبيين تحت زرار عشان الشباك يبقى للبيع بس. لو المنتج خلص، زرار النواقص بيبان على طول
   // من غير جرد: زرار النواقص بس، باين على طول
-  if (!canStock) return <div className="mt-4 border-t border-line-soft pt-3">{shortageEl}</div>
+  if (!canStock) {
+    return (
+      <div className="mt-4 space-y-2 border-t border-line-soft pt-3">
+        {lossEl}
+        {shortageEl}
+      </div>
+    )
+  }
 
   return (
     <div className="mt-4 space-y-2 border-t border-line-soft pt-3">
+      {lossEl}
       {out && shortageEl}
       {(canStock || !out) && (
         <button type="button" onClick={() => setMore((m) => !m)} className="flex w-full items-center justify-center gap-1.5 rounded-btn py-2 text-sm font-bold text-ink-3 hover:bg-bg">
